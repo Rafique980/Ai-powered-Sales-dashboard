@@ -3,39 +3,39 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
 
-# ------------------ PAGE SETUP ------------------
-st.set_page_config(page_title="Sales Forecasting Dashboard", layout="wide")
+# ------------------ PAGE CONFIG ------------------
+st.set_page_config(
+    page_title="Sales Forecast Dashboard",
+    layout="wide"
+)
 
-st.title("📊 Sales Forecasting Dashboard")
-st.caption("Upload your data and analyze + forecast sales")
+st.title("📊 Production Sales Forecasting Dashboard")
+st.caption("Stable version (no PandasAI, no deprecated pandas APIs)")
 
-# ------------------ FILE UPLOAD ------------------
-uploaded_file = st.file_uploader("📁 Upload CSV file", type=["csv"])
+# ------------------ UPLOAD DATA ------------------
+uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-if uploaded_file is None:
-    st.warning("Please upload a CSV file")
+if not uploaded_file:
+    st.info("Upload a CSV file to continue")
     st.stop()
 
-# ------------------ LOAD DATA ------------------
 df = pd.read_csv(uploaded_file)
 
-st.subheader("📄 Data Preview")
+st.subheader("📄 Raw Data")
 st.dataframe(df.head())
 
 # ------------------ COLUMN SELECTION ------------------
-st.sidebar.header("⚙️ Configuration")
+st.sidebar.header("⚙️ Settings")
 
-date_col = st.sidebar.selectbox("Select Date Column", df.columns)
-sales_col = st.sidebar.selectbox("Select Sales Column", df.columns)
-product_col = st.sidebar.selectbox("Select Product Column", df.columns)
+date_col = st.sidebar.selectbox("Date Column", df.columns)
+sales_col = st.sidebar.selectbox("Sales Column", df.columns)
+product_col = st.sidebar.selectbox("Product Column", df.columns)
 
-# ------------------ DATA CLEANING ------------------
+# ------------------ CLEANING ------------------
 df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 df[sales_col] = pd.to_numeric(df[sales_col], errors="coerce")
 
 df = df.dropna(subset=[date_col, sales_col])
-
-st.write("Rows after cleaning:", len(df))
 
 if df.empty:
     st.error("No valid data after cleaning")
@@ -44,133 +44,113 @@ if df.empty:
 # ------------------ TIME SERIES ------------------
 sales = df.groupby(date_col)[sales_col].sum().sort_index()
 
-st.subheader("📈 Raw Sales Trend")
+st.subheader("📈 Sales Trend")
 st.line_chart(sales)
 
-# Monthly aggregation
-sales_monthly = sales.resample('ME').sum()
+# ------------------ MONTHLY AGGREGATION (FIXED) ------------------
+sales_monthly = sales.groupby(pd.Grouper(freq="ME")).sum()
 
 st.subheader("📉 Monthly Sales Trend")
 st.line_chart(sales_monthly)
-
-st.divider()
 
 # ------------------ METRICS ------------------
 st.subheader("📊 Key Metrics")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Total Sales", f"{int(sales_monthly.sum()):,}")
-col2.metric("Avg Monthly Sales", f"{int(sales_monthly.mean()):,}")
-col3.metric("Max Monthly Sales", f"{int(sales_monthly.max()):,}")
-
-st.divider()
+col1.metric("Total Sales", f"{sales_monthly.sum():,.0f}")
+col2.metric("Avg Monthly Sales", f"{sales_monthly.mean():,.0f}")
+col3.metric("Max Monthly Sales", f"{sales_monthly.max():,.0f}")
 
 # ------------------ TOP PRODUCTS ------------------
 st.subheader("🏆 Top 5 Products")
 
-top_products = df.groupby(product_col)[sales_col].sum().sort_values(ascending=False).head(5)
+top_products = (
+    df.groupby(product_col)[sales_col]
+    .sum()
+    .sort_values(ascending=False)
+    .head(5)
+)
 
 fig1, ax1 = plt.subplots()
-top_products.plot(kind='bar', ax=ax1)
+top_products.plot(kind="bar", ax=ax1)
 ax1.set_title("Top 5 Products")
-plt.xticks(rotation=45)
-
 st.pyplot(fig1)
 
-st.divider()
-
-# ------------------ PRODUCT COMPARISON ------------------
-st.subheader("📊 Product Comparison")
-
-product_sales = df.groupby(product_col)[sales_col].sum()
-
-fig2, ax2 = plt.subplots()
-product_sales.plot(kind='bar', ax=ax2)
-ax2.set_title("Sales by Product")
-plt.xticks(rotation=45)
-
-st.pyplot(fig2)
-
-st.divider()
-
-# ------------------ FORECAST ------------------
+# ------------------ FORECASTING ------------------
 st.subheader("🔮 Forecast")
 
 if len(sales_monthly) < 3:
-    st.error("Not enough data for forecasting")
+    st.warning("Not enough data for forecasting")
     st.stop()
 
-steps = st.slider("Months to forecast", 1, 12, 6)
+steps = st.slider("Months to Forecast", 1, 12, 6)
 
+# ARIMA MODEL
 model = ARIMA(sales_monthly, order=(1, 1, 1))
 model_fit = model.fit()
 
 forecast = model_fit.forecast(steps=steps)
 
+# FIXED DATE INDEX (NO 'M' BUG)
 forecast_index = pd.date_range(
     start=sales_monthly.index[-1] + pd.offsets.MonthEnd(1),
     periods=steps,
-    freq='M'
+    freq=pd.offsets.MonthEnd()
 )
 
 forecast_df = pd.DataFrame({
     "Date": forecast_index,
-    "Predicted Sales": forecast.values
+    "Forecast": forecast.values
 })
 
-st.subheader("📅 Forecast Data")
+st.subheader("📅 Forecast Table")
 st.dataframe(forecast_df)
 
-# ------------------ FORECAST GRAPH ------------------
-st.subheader("📊 Forecast Visualization")
+# ------------------ VISUALIZATION ------------------
+fig2, ax2 = plt.subplots()
 
-fig3, ax3 = plt.subplots()
+ax2.plot(sales_monthly.index, sales_monthly.values, label="Actual")
+ax2.plot(forecast_df["Date"], forecast_df["Forecast"], linestyle="--", label="Forecast")
 
-ax3.plot(sales_monthly.index, sales_monthly.values, label="Actual")
-ax3.plot(forecast_df["Date"], forecast_df["Predicted Sales"], linestyle="--", label="Forecast")
+ax2.legend()
+ax2.set_title("Sales Forecast")
 
-ax3.legend()
-ax3.set_title("Sales Forecast")
+st.pyplot(fig2)
 
-st.pyplot(fig3)
-
-st.divider()
-
-# ------------------ FINAL INSIGHTS ------------------
+# ------------------ INSIGHTS ------------------
 st.subheader("📌 Insights")
 
-trend = "increasing 📈" if sales_monthly.iloc[-1] > sales_monthly.iloc[0] else "stable ➖"
+trend = (
+    "increasing 📈"
+    if sales_monthly.iloc[-1] > sales_monthly.iloc[0]
+    else "stable ➖"
+)
 
 st.write(f"""
-- Sales trend appears **{trend}**
+- Sales trend is **{trend}**
+- Forecast helps in planning inventory and demand
 - Top products drive majority of revenue
-- Forecast shows expected continuation of trend
-- Useful for business planning and inventory decisions
+- Model used: ARIMA (1,1,1)
 """)
 
-st.divider()
-
-# ------------------ SQL SECTION ------------------
-st.subheader("🧠 SQL Equivalent Queries")
+# ------------------ SQL SNIPPETS ------------------
+st.subheader("🧠 SQL Reference Queries")
 
 st.code("""
--- Top 5 Products
+-- Top products
 SELECT product, SUM(sales)
-FROM sales_data
+FROM sales
 GROUP BY product
 ORDER BY SUM(sales) DESC
 LIMIT 5;
 
--- Monthly Trend
-SELECT DATE_TRUNC('month', order_date), SUM(sales)
-FROM sales_data
+-- Monthly trend
+SELECT DATE_TRUNC('month', date), SUM(sales)
+FROM sales
 GROUP BY 1
 ORDER BY 1;
 
--- Total Sales
-SELECT SUM(sales) FROM sales_data;
-
--- High Value Sales
-SELECT * FROM sales_data WHERE sales > 1000;
+-- Total sales
+SELECT SUM(sales) FROM sales;
 """, language="sql")
