@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
+from pandasai import SmartDataframe
+from pandasai.llm.openai import OpenAI
 
 # ------------------ PAGE SETUP ------------------
 st.set_page_config(page_title="Sales Forecasting Dashboard", layout="wide")
@@ -46,6 +48,9 @@ st.write("Converted Date Sample:")
 st.write(df[[date_col]].head())
 
 df = df.dropna(subset=[date_col, sales_col])
+# ------------------ AI SETUP ------------------
+llm = OpenAI(api_token="YOUR_API_KEY")  # replace this
+sdf = SmartDataframe(df, config={"llm": llm})
 
 st.write("Rows after cleaning:", len(df))
 
@@ -191,3 +196,19 @@ WHERE sales > 1000;
 """, language="sql")
 
 st.divider()
+st.divider()
+
+# ------------------ AI ASSISTANT ------------------
+st.subheader("🤖 AI Sales Assistant")
+
+st.write("Ask questions about your data (e.g. 'Top 5 products', 'Sales trend in March')")
+
+query = st.text_input("💬 Ask your data:")
+
+if query:
+    with st.spinner("Analyzing..."):
+        try:
+            response = sdf.chat(query)
+            st.write(response)
+        except Exception as e:
+            st.error(f"Error: {e}")
