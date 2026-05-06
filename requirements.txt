@@ -3,3 +3,5 @@ pandas
 matplotlib
 numpy
 statsmodels
+pandasai
+openai
