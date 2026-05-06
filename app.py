@@ -1,10 +1,10 @@
 import streamlit as st
+from pandasai import SmartDataframe
+from pandasai.llm.openai import OpenAI
 llm = OpenAI(api_token=st.secrets["OPENAI_API_KEY"])
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
-from pandasai import SmartDataframe
-from pandasai.llm.openai import OpenAI
 
 # ------------------ PAGE SETUP ------------------
 st.set_page_config(page_title="Sales Forecasting Dashboard", layout="wide")
