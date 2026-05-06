@@ -1,4 +1,5 @@
 import streamlit as st
+llm = OpenAI(api_token=st.secrets["OPENAI_API_KEY"])
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
