@@ -48,7 +48,7 @@ st.subheader("📈 Raw Sales Trend")
 st.line_chart(sales)
 
 # Monthly aggregation
-sales_monthly = sales.resample('M').sum()
+sales_monthly = sales.resample('ME').sum()
 
 st.subheader("📉 Monthly Sales Trend")
 st.line_chart(sales_monthly)
