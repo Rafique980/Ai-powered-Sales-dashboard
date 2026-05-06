@@ -1,215 +1,127 @@
 import streamlit as st
-from pandasai import SmartDataframe
-from pandasai.llm.openai import OpenAI
-llm = OpenAI(api_token=st.secrets["OPENAI_API_KEY"])
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
+import numpy as np
 
-# ------------------ PAGE SETUP ------------------
-st.set_page_config(page_title="Sales Forecasting Dashboard", layout="wide")
+# Optional OpenAI (safe fallback if not configured)
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except:
+    OPENAI_AVAILABLE = False
 
-st.title("📊 Sales Forecasting Dashboard")
-st.caption("Upload your data and analyze + forecast sales")
 
-# ------------------ FILE UPLOAD ------------------
-uploaded_file = st.file_uploader("📁 Upload CSV file", type=["csv"])
+# -------------------------------
+# STREAMLIT UI
+# -------------------------------
+st.set_page_config(page_title="Sales Forecast Dashboard", layout="wide")
+st.title("📊 Sales Forecasting Dashboard (ARIMA)")
 
-if uploaded_file is None:
-    st.warning("Please upload a CSV file")
-    st.stop()
 
-# ------------------ LOAD DATA ------------------
-df = pd.read_csv(uploaded_file)
+# -------------------------------
+# FILE UPLOAD
+# -------------------------------
+uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 
-st.subheader("📄 Data Preview")
-st.dataframe(df.head())
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    st.subheader("Raw Data")
+    st.dataframe(df.head())
 
-# ------------------ COLUMN SELECTION ------------------
-st.sidebar.header("⚙️ Configuration")
+    # Column selection
+    columns = df.columns.tolist()
 
-date_col = st.sidebar.selectbox("Select Date Column", df.columns)
-sales_col = st.sidebar.selectbox("Select Sales Column", df.columns)
-product_col = st.sidebar.selectbox("Select Product Column", df.columns)
+    date_col = st.selectbox("Select Date Column", columns)
+    target_col = st.selectbox("Select Sales Column", columns)
 
-# ------------------ DATA CLEANING ------------------
-# FIXED DATE FORMAT
-df[date_col] = pd.to_datetime(
-    df[date_col],
-    format='%d/%m/%Y',
-    errors='coerce'
-)
+    # -------------------------------
+    # DATA PREPROCESSING
+    # -------------------------------
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.sort_values(date_col)
+    df = df[[date_col, target_col]].dropna()
 
-df[sales_col] = pd.to_numeric(df[sales_col], errors='coerce')
+    df.set_index(date_col, inplace=True)
 
-st.write("Rows before cleaning:", len(df))
+    st.subheader("Processed Data")
+    st.line_chart(df[target_col])
 
-# Debug preview
-st.write("Converted Date Sample:")
-st.write(df[[date_col]].head())
+    # -------------------------------
+    # FORECAST SETTINGS
+    # -------------------------------
+    st.sidebar.header("Forecast Settings")
 
-df = df.dropna(subset=[date_col, sales_col])
-# ------------------ AI SETUP ------------------
-llm = OpenAI(api_token="YOUR_API_KEY")  # replace this
-sdf = SmartDataframe(df, config={"llm": llm})
+    p = st.sidebar.slider("ARIMA p", 0, 5, 1)
+    d = st.sidebar.slider("ARIMA d", 0, 2, 1)
+    q = st.sidebar.slider("ARIMA q", 0, 5, 1)
 
-st.write("Rows after cleaning:", len(df))
+    steps = st.sidebar.slider("Forecast Days", 5, 60, 10)
 
-if df.empty:
-    st.error("No valid data after cleaning")
-    st.stop()
+    # -------------------------------
+    # MODEL TRAINING
+    # -------------------------------
+    if st.button("Run Forecast"):
+        with st.spinner("Training ARIMA model..."):
 
-# ------------------ TIME SERIES ------------------
-sales = df.groupby(date_col)[sales_col].sum()
+            model = ARIMA(df[target_col], order=(p, d, q))
+            model_fit = model.fit()
 
-# RAW DATA GRAPH
-st.subheader("📈 Raw Sales Trend (All Data)")
-st.line_chart(sales)
+            forecast = model_fit.forecast(steps=steps)
 
-# MONTHLY DATA
-sales_monthly = sales.resample('ME').sum()
+            forecast_index = pd.date_range(
+                start=df.index[-1],
+                periods=steps + 1,
+                freq="D"
+            )[1:]
 
-st.subheader("📉 Monthly Sales Trend")
-st.line_chart(sales_monthly)
+            forecast_df = pd.DataFrame({
+                "Forecast": forecast
+            }, index=forecast_index)
 
-st.divider()
+            # -------------------------------
+            # PLOT
+            # -------------------------------
+            st.subheader("Forecast Results")
 
-# ------------------ METRICS ------------------
-st.subheader("📊 Key Metrics")
+            fig, ax = plt.subplots()
+            ax.plot(df[target_col], label="Actual")
+            ax.plot(forecast_df["Forecast"], label="Forecast", linestyle="--")
+            ax.legend()
+            st.pyplot(fig)
 
-col1, col2, col3 = st.columns(3)
+            st.dataframe(forecast_df)
 
-col1.metric("Total Sales", f"{int(sales_monthly.sum()):,}")
-col2.metric("Avg Monthly Sales", f"{int(sales_monthly.mean()):,}")
-col3.metric("Max Monthly Sales", f"{int(sales_monthly.max()):,}")
+            # -------------------------------
+            # INSIGHTS (OPTIONAL OPENAI)
+            # -------------------------------
+            st.subheader("AI Insights")
 
-st.divider()
+            if OPENAI_AVAILABLE and "OPENAI_API_KEY" in st.secrets:
+                try:
+                    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# ------------------ TOP PRODUCTS ------------------
-st.subheader("🏆 Top 5 Products")
+                    prompt = f"""
+                    You are a data analyst.
+                    Explain this sales forecast in simple terms:
 
-top_products = df.groupby(product_col)[sales_col].sum().sort_values(ascending=False).head(5)
+                    - Last actual value: {df[target_col].iloc[-1]}
+                    - Forecast values: {forecast.values[:5].tolist()}
 
-fig1, ax1 = plt.subplots()
-top_products.plot(kind='bar', ax=ax1)
-ax1.set_title("Top 5 Products")
-plt.xticks(rotation=45)
+                    Give business insights and risks.
+                    """
 
-st.pyplot(fig1)
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
 
-st.write("📌 Insight: A few products contribute most of the revenue.")
+                    st.write(response.choices[0].message.content)
 
-st.divider()
+                except Exception as e:
+                    st.warning(f"OpenAI insight failed: {e}")
 
-# ------------------ PRODUCT COMPARISON ------------------
-st.subheader("📊 Product Comparison")
-
-product_sales = df.groupby(product_col)[sales_col].sum()
-
-fig2, ax2 = plt.subplots()
-product_sales.plot(kind='bar', ax=ax2)
-ax2.set_title("Sales by Product")
-plt.xticks(rotation=45)
-
-st.pyplot(fig2)
-
-st.write("📌 Insight: Sales vary significantly across products.")
-
-st.divider()
-
-# ------------------ FORECAST ------------------
-st.subheader("🔮 Forecast Settings")
-
-# SAFETY CHECK
-if len(sales_monthly) < 3:
-    st.error("Not enough data for forecasting")
-    st.stop()
-
-steps = st.slider("Months to forecast", 1, 12, 6)
-
-model = ARIMA(sales_monthly, order=(1,1,1))
-model_fit = model.fit()
-
-forecast = model_fit.forecast(steps=steps)
-
-forecast_df = pd.DataFrame({
-    "Date": pd.date_range(
-        start=sales_monthly.index[-1] + pd.offsets.MonthEnd(1),
-        periods=steps,
-        freq='ME'
-    ),
-    "Predicted Sales": forecast.values
-})
-
-st.subheader("📅 Forecast Data")
-st.dataframe(forecast_df)
-
-# ------------------ FORECAST GRAPH ------------------
-st.subheader("📊 Forecast Visualization")
-
-fig3, ax3 = plt.subplots()
-
-ax3.plot(sales_monthly.index, sales_monthly.values, label="Actual")
-ax3.plot(forecast_df["Date"], forecast_df["Predicted Sales"], linestyle='--', label="Forecast")
-
-ax3.legend()
-ax3.set_title("Sales Forecast")
-
-st.pyplot(fig3)
-
-st.divider()
-
-# ------------------ FINAL INSIGHTS ------------------
-st.subheader("📌 Insights")
-
-trend = "increasing 📈" if sales_monthly.iloc[-1] > sales_monthly.iloc[0] else "stable ➖"
-
-st.write(f"""
-- Sales trend appears **{trend}**
-- Top-performing products drive majority of revenue
-- Forecast suggests stable future performance
-- Useful for business planning and decision-making
-""")
-# ------------------ SQL SECTION ------------------
-st.subheader("🧠 SQL Equivalent Queries")
-
-st.code("""
--- Top 5 Products by Sales
-SELECT product, SUM(sales)
-FROM sales_data
-GROUP BY product
-ORDER BY SUM(sales) DESC
-LIMIT 5;
-
--- Monthly Sales Trend
-SELECT DATE_TRUNC('month', order_date) AS month, SUM(sales)
-FROM sales_data
-GROUP BY month
-ORDER BY month;
-
--- Total Sales
-SELECT SUM(sales) FROM sales_data;
-
--- High Value Transactions
-SELECT *
-FROM sales_data
-WHERE sales > 1000;
-""", language="sql")
-
-st.divider()
-st.divider()
-
-# ------------------ AI ASSISTANT ------------------
-st.subheader("🤖 AI Sales Assistant")
-
-st.write("Ask questions about your data (e.g. 'Top 5 products', 'Sales trend in March')")
-
-query = st.text_input("💬 Ask your data:")
-
-if query:
-    with st.spinner("Analyzing..."):
-        try:
-            response = sdf.chat(query)
-            st.write(response)
-        except Exception as e:
-            st.error(f"Error: {e}")
+            else:
+                st.info("OpenAI not configured. Add API key in Streamlit secrets for AI insights.")
