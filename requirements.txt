@@ -3,7 +3,6 @@ pandas
 matplotlib
 numpy
 statsmodels
-pandasai
-openai
-astor
 plotly
+google-generativeai
+astor
