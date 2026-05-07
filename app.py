@@ -6,17 +6,19 @@ from statsmodels.tsa.arima.model import ARIMA
 import google.generativeai as genai
 
 # ------------------ GEMINI SETUP ------------------
+import google.generativeai as genai
+
 model_ai = None
 
 if "GEMINI_API_KEY" in st.secrets:
+
     genai.configure(
         api_key=st.secrets["GEMINI_API_KEY"]
     )
 
     model_ai = genai.GenerativeModel(
-    "model_ai = genai.GenerativeModel("models/gemini-1.5-flash")"
+        "models/gemini-1.5-flash"
     )
-
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(
     page_title="AI Sales Forecast Dashboard",
