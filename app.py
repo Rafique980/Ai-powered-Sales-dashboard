@@ -9,176 +9,78 @@ import google.generativeai as genai
 model_ai = None
 
 if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model_ai = genai.GenerativeModel("gemini-1.5-flash")
+    genai.configure(
+        api_key=st.secrets["GEMINI_API_KEY"]
+    )
 
-# ------------------ PAGE ------------------
+    model_ai = genai.GenerativeModel(
+        "gemini-2.0-flash"
+    )
+
+# ------------------ PAGE CONFIG ------------------
 st.set_page_config(
-    page_title="AI Sales Dashboard",
-    layout="wide",
-    page_icon="📊"
+    page_title="AI Sales Forecast Dashboard",
+    page_icon="📊",
+    layout="wide"
 )
 
-# ------------------ THEME / CSS ------------------
+# ------------------ COLORS ------------------
 PRIMARY = "#00E5FF"
-ACCENT  = "#7C5CFF"
-BG      = "#0B1220"
-PANEL   = "#111A2E"
-PANEL_2 = "#162038"
-TEXT    = "#E6EEF8"
-MUTED   = "#8AA0BF"
+ACCENT = "#7C5CFF"
+BG = "#0B1220"
+TEXT = "#E6EEF8"
+MUTED = "#8AA0BF"
 
+# ------------------ CUSTOM CSS ------------------
 st.markdown(f"""
 <style>
+
 .stApp {{
-    background: radial-gradient(1200px 600px at 10% -10%, #16224a 0%, transparent 60%),
-                radial-gradient(900px 500px at 100% 0%, #0e2a3a 0%, transparent 55%),
-                {BG};
+    background: {BG};
     color: {TEXT};
-}}
-
-section.main > div {{
-    padding-top: 1rem;
-}}
-
-section[data-testid="stSidebar"] {{
-    background: linear-gradient(180deg, #0a1326 0%, #0b1730 100%);
-    border-right: 1px solid rgba(255,255,255,0.06);
-}}
-
-section[data-testid="stSidebar"] * {{
-    color: {TEXT};
-}}
-
-.sidebar-brand {{
-    display:flex;
-    align-items:center;
-    gap:.6rem;
-    padding:14px 12px;
-    margin-bottom:8px;
-    border-radius:14px;
-    background: linear-gradient(135deg, rgba(0,229,255,.15), rgba(124,92,255,.15));
-    border: 1px solid rgba(255,255,255,0.08);
-}}
-
-.sidebar-brand .logo {{
-    width:36px;
-    height:36px;
-    border-radius:10px;
-    background: linear-gradient(135deg, {PRIMARY}, {ACCENT});
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:20px;
-    color:#0b1220;
-    font-weight:800;
-}}
-
-.sidebar-brand .title {{
-    font-weight:700;
-    font-size:1rem;
-}}
-
-.sidebar-brand .sub {{
-    color:{MUTED};
-    font-size:.75rem;
-}}
-
-.stButton > button {{
-    background: linear-gradient(135deg, {PRIMARY}, {ACCENT});
-    color: #0b1220;
-    font-weight: 700;
-    border: 0;
-    border-radius: 12px;
-    padding: .55rem 1.1rem;
 }}
 
 .hero-title {{
-    font-size: 2.1rem;
+    font-size: 2.5rem;
     font-weight: 800;
     background: linear-gradient(90deg, {PRIMARY}, {ACCENT});
     -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    -webkit-text-fill-color: transparent;
 }}
 
 .hero-sub {{
-    color:{MUTED};
+    color: {MUTED};
+    font-size: 1rem;
+    margin-bottom: 20px;
 }}
 
 .metric-card {{
-    background: linear-gradient(160deg, {PANEL} 0%, {PANEL_2} 100%);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 16px;
-    padding: 18px 20px;
+    background: #111A2E;
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid rgba(255,255,255,0.08);
 }}
 
-.metric-card .label {{
-    color:{MUTED};
-    font-size:.8rem;
+.metric-title {{
+    color: {MUTED};
+    font-size: 0.9rem;
 }}
 
-.metric-card .value {{
-    color:{TEXT};
-    font-size:1.7rem;
-    font-weight:800;
+.metric-value {{
+    color: {TEXT};
+    font-size: 1.8rem;
+    font-weight: 700;
 }}
 
 .ai-card {{
-    background: linear-gradient(160deg, rgba(124,92,255,.10), rgba(0,229,255,.06));
-    border: 1px solid rgba(124,92,255,.35);
+    background: rgba(124,92,255,0.08);
+    padding: 20px;
+    border-radius: 15px;
     border-left: 4px solid {ACCENT};
-    border-radius: 14px;
-    padding: 16px 18px;
-    color: {TEXT};
-    line-height: 1.55;
+    margin-top: 10px;
 }}
+
 </style>
-""", unsafe_allow_html=True)
-
-# ------------------ HELPERS ------------------
-def section(title, icon="✨"):
-    st.markdown(
-        f"""
-        <div style="display:flex;align-items:center;gap:.7rem;margin:1.4rem 0 .8rem 0;">
-            <div style="width:6px;height:26px;border-radius:4px;background:linear-gradient(180deg,{PRIMARY},{ACCENT});"></div>
-            <div style="font-size:1.25rem;">{icon}</div>
-            <h3 style="margin:0;color:{TEXT};">{title}</h3>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-def metric_card(col, label, value):
-    col.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="label">{label}</div>
-            <div class="value">{value}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-def style_fig(fig):
-    fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(255,255,255,0.02)",
-        font=dict(color=TEXT),
-        margin=dict(l=10, r=10, t=40, b=10),
-    )
-    return fig
-
-# ------------------ SIDEBAR ------------------
-st.sidebar.markdown("""
-<div class="sidebar-brand">
-    <div class="logo">📊</div>
-    <div>
-        <div class="title">Sales IQ</div>
-        <div class="sub">Gemini AI Dashboard</div>
-    </div>
-</div>
 """, unsafe_allow_html=True)
 
 # ------------------ HEADER ------------------
@@ -188,84 +90,165 @@ st.markdown(
 )
 
 st.markdown(
-    '<div class="hero-sub">Forecast sales trends and analyze business insights using Gemini AI.</div>',
+    '<div class="hero-sub">Upload CSV data, forecast trends, and analyze sales using Gemini AI.</div>',
     unsafe_allow_html=True
 )
 
 # ------------------ FILE UPLOAD ------------------
-uploaded_file = st.file_uploader("📁 Upload CSV File", type=["csv"])
+uploaded_file = st.file_uploader(
+    "📁 Upload CSV File",
+    type=["csv"]
+)
 
-if not uploaded_file:
+if uploaded_file is None:
     st.info("Upload a CSV file to begin")
     st.stop()
 
+# ------------------ READ DATA ------------------
 df = pd.read_csv(uploaded_file)
 
 # ------------------ DATA PREVIEW ------------------
-section("Data Preview", "🗂️")
+st.subheader("🗂️ Data Preview")
 st.dataframe(df.head(), use_container_width=True)
 
-# ------------------ SETTINGS ------------------
-st.sidebar.markdown("### ⚙️ Settings")
+# ------------------ SIDEBAR ------------------
+st.sidebar.header("⚙️ Configuration")
 
-date_col = st.sidebar.selectbox("📅 Date Column", df.columns)
-sales_col = st.sidebar.selectbox("💰 Sales Column", df.columns)
-product_col = st.sidebar.selectbox("📦 Product Column", df.columns)
+date_col = st.sidebar.selectbox(
+    "📅 Select Date Column",
+    df.columns
+)
+
+sales_col = st.sidebar.selectbox(
+    "💰 Select Sales Column",
+    df.columns
+)
+
+product_col = st.sidebar.selectbox(
+    "📦 Select Product Column",
+    df.columns
+)
 
 # ------------------ CLEAN DATA ------------------
-df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-df[sales_col] = pd.to_numeric(df[sales_col], errors="coerce")
+df[date_col] = pd.to_datetime(
+    df[date_col],
+    errors="coerce"
+)
+
+df[sales_col] = pd.to_numeric(
+    df[sales_col],
+    errors="coerce"
+)
 
 df = df.dropna(subset=[date_col, sales_col])
 
 if df.empty:
-    st.error("No valid data after cleaning")
+    st.error("No valid data available after cleaning")
     st.stop()
 
-# ------------------ SALES TREND ------------------
-sales = df.groupby(date_col)[sales_col].sum().sort_index()
+# ------------------ TIME SERIES ------------------
+sales = (
+    df.groupby(date_col)[sales_col]
+    .sum()
+    .sort_index()
+)
 
-section("Sales Trend", "📈")
+# ------------------ SALES TREND ------------------
+st.subheader("📈 Sales Trend")
 
 fig_sales = px.line(
     x=sales.index,
     y=sales.values,
-    labels={"x": "Date", "y": "Sales"}
+    labels={
+        "x": "Date",
+        "y": "Sales"
+    }
 )
 
-fig_sales.update_traces(line=dict(color=PRIMARY, width=3))
+fig_sales.update_traces(
+    line=dict(
+        color=PRIMARY,
+        width=3
+    )
+)
 
-st.plotly_chart(style_fig(fig_sales), use_container_width=True)
+fig_sales.update_layout(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(255,255,255,0.02)"
+)
+
+st.plotly_chart(
+    fig_sales,
+    use_container_width=True
+)
 
 # ------------------ MONTHLY SALES ------------------
-sales_monthly = sales.groupby(pd.Grouper(freq="ME")).sum()
+sales_monthly = sales.groupby(
+    pd.Grouper(freq="ME")
+).sum()
 
-section("Monthly Sales Trend", "🗓️")
+st.subheader("🗓️ Monthly Sales Trend")
 
 fig_month = px.area(
     x=sales_monthly.index,
     y=sales_monthly.values,
-    labels={"x": "Month", "y": "Sales"}
+    labels={
+        "x": "Month",
+        "y": "Sales"
+    }
 )
 
 fig_month.update_traces(
-    line=dict(color=ACCENT, width=3),
+    line=dict(
+        color=ACCENT,
+        width=3
+    ),
     fillcolor="rgba(124,92,255,0.2)"
 )
 
-st.plotly_chart(style_fig(fig_month), use_container_width=True)
+fig_month.update_layout(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(255,255,255,0.02)"
+)
+
+st.plotly_chart(
+    fig_month,
+    use_container_width=True
+)
 
 # ------------------ METRICS ------------------
-section("Key Metrics", "🎯")
+st.subheader("🎯 Key Metrics")
 
 c1, c2, c3 = st.columns(3)
 
-metric_card(c1, "Total Sales", f"{sales_monthly.sum():,.0f}")
-metric_card(c2, "Average Monthly", f"{sales_monthly.mean():,.0f}")
-metric_card(c3, "Maximum Monthly", f"{sales_monthly.max():,.0f}")
+with c1:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-title">Total Sales</div>
+        <div class="metric-value">{sales_monthly.sum():,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-title">Average Monthly Sales</div>
+        <div class="metric-value">{sales_monthly.mean():,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-title">Maximum Monthly Sales</div>
+        <div class="metric-value">{sales_monthly.max():,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ------------------ TOP PRODUCTS ------------------
-section("Top Products", "🏆")
+st.subheader("🏆 Top Products")
 
 top_products = (
     df.groupby(product_col)[sales_col]
@@ -278,32 +261,55 @@ fig_top = px.bar(
     x=top_products.values,
     y=top_products.index.astype(str),
     orientation="h",
-    labels={"x": "Sales", "y": "Product"},
+    labels={
+        "x": "Sales",
+        "y": "Product"
+    },
     color=top_products.values,
-    color_continuous_scale=[[0, ACCENT], [1, PRIMARY]]
+    color_continuous_scale="Blues"
 )
 
 fig_top.update_layout(
-    coloraxis_showscale=False,
-    yaxis=dict(autorange="reversed")
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(255,255,255,0.02)",
+    yaxis=dict(autorange="reversed"),
+    coloraxis_showscale=False
 )
 
-st.plotly_chart(style_fig(fig_top), use_container_width=True)
+st.plotly_chart(
+    fig_top,
+    use_container_width=True
+)
 
 # ------------------ FORECAST ------------------
-section("Forecast", "🔮")
+st.subheader("🔮 Sales Forecast")
 
-steps = st.slider("Months to Forecast", 1, 12, 6)
+if len(sales_monthly) < 3:
+    st.error("Not enough data for forecasting")
+    st.stop()
 
-with st.spinner("Training ARIMA model..."):
+steps = st.slider(
+    "Months to Forecast",
+    1,
+    12,
+    6
+)
 
-    model = ARIMA(sales_monthly, order=(1,1,1))
+with st.spinner("Training forecasting model..."):
+
+    model = ARIMA(
+        sales_monthly,
+        order=(1,1,1)
+    )
+
     model_fit = model.fit()
 
-    forecast_res = model_fit.get_forecast(steps=steps)
+    forecast_res = model_fit.get_forecast(
+        steps=steps
+    )
 
     forecast = forecast_res.predicted_mean
-    conf = forecast_res.conf_int()
 
 forecast_index = pd.date_range(
     start=sales_monthly.index[-1] + pd.offsets.MonthEnd(1),
@@ -313,42 +319,56 @@ forecast_index = pd.date_range(
 
 forecast_df = pd.DataFrame({
     "Date": forecast_index,
-    "Forecast": forecast.values,
-    "Lower": conf.iloc[:, 0].values,
-    "Upper": conf.iloc[:, 1].values
+    "Forecast": forecast.values
 })
 
-c1, c2 = st.columns([1, 2])
+# ------------------ FORECAST TABLE ------------------
+st.dataframe(
+    forecast_df,
+    use_container_width=True,
+    hide_index=True
+)
 
-with c1:
-    st.dataframe(
-        forecast_df,
-        use_container_width=True,
-        hide_index=True
-    )
+# ------------------ FORECAST CHART ------------------
+fig_forecast = go.Figure()
 
-with c2:
-
-    fig_fc = go.Figure()
-
-    fig_fc.add_trace(go.Scatter(
+fig_forecast.add_trace(
+    go.Scatter(
         x=sales_monthly.index,
         y=sales_monthly.values,
-        name="Actual",
+        mode="lines",
+        name="Actual Sales",
         line=dict(color=PRIMARY, width=3)
-    ))
+    )
+)
 
-    fig_fc.add_trace(go.Scatter(
+fig_forecast.add_trace(
+    go.Scatter(
         x=forecast_df["Date"],
         y=forecast_df["Forecast"],
+        mode="lines",
         name="Forecast",
-        line=dict(color=ACCENT, width=3, dash="dash")
-    ))
+        line=dict(
+            color=ACCENT,
+            width=3,
+            dash="dash"
+        )
+    )
+)
 
-    st.plotly_chart(style_fig(fig_fc), use_container_width=True)
+fig_forecast.update_layout(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(255,255,255,0.02)"
+)
+
+st.plotly_chart(
+    fig_forecast,
+    use_container_width=True
+)
 
 # ------------------ GEMINI AI INSIGHTS ------------------
-section("Gemini AI Insights", "🤖")
+st.subheader("🤖 Gemini AI Insights")
 
 if model_ai:
 
@@ -357,7 +377,7 @@ if model_ai:
         with st.spinner("Gemini AI analyzing data..."):
 
             prompt = f"""
-You are a professional business analyst.
+You are an expert business analyst.
 
 Analyze this sales dataset.
 
@@ -385,17 +405,22 @@ Provide:
 
             try:
 
-                response = model_ai.generate_content(prompt)
+                response = model_ai.generate_content(
+                    prompt
+                )
 
-                content = response.text.replace("\n", "<br>")
+                content = response.text.replace(
+                    "\\n",
+                    "<br>"
+                )
 
                 st.markdown(
-                    f"""
+                    f'''
                     <div class="ai-card">
-                        <h4>🤖 Gemini AI Analyst</h4>
+                        <h3>🤖 Gemini AI Analyst</h3>
                         {content}
                     </div>
-                    """,
+                    ''',
                     unsafe_allow_html=True
                 )
 
@@ -403,18 +428,20 @@ Provide:
                 st.error(f"Gemini Error: {e}")
 
 else:
-    st.warning("Add GEMINI_API_KEY in Streamlit secrets")
+    st.warning(
+        "Add GEMINI_API_KEY in Streamlit secrets"
+    )
 
-# ------------------ GEMINI CHAT ------------------
-section("Ask Gemini About Your Data", "💬")
+# ------------------ GEMINI AI CHAT ------------------
+st.subheader("💬 Ask Gemini About Your Data")
 
 query = st.text_input(
-    "Ask a question about your data"
+    "Ask a question about your sales data"
 )
 
 if query and model_ai:
 
-    with st.spinner("Gemini is thinking..."):
+    with st.spinner("Gemini AI thinking..."):
 
         try:
 
@@ -424,6 +451,9 @@ Dataset Summary:
 Total Sales:
 {sales_monthly.sum()}
 
+Average Monthly Sales:
+{sales_monthly.mean()}
+
 Top Products:
 {top_products.to_string()}
 
@@ -431,19 +461,28 @@ Forecast:
 {forecast.values[:5].tolist()}
 """
 
-            final_prompt = context + "\n\nUser Question:\n" + query
+            final_prompt = (
+                context +
+                "\\n\\nUser Question:\\n" +
+                query
+            )
 
-            response = model_ai.generate_content(final_prompt)
+            response = model_ai.generate_content(
+                final_prompt
+            )
 
-            content = response.text.replace("\n", "<br>")
+            content = response.text.replace(
+                "\\n",
+                "<br>"
+            )
 
             st.markdown(
-                f"""
+                f'''
                 <div class="ai-card">
-                    <h4>💬 Gemini Response</h4>
+                    <h3>💬 Gemini Response</h3>
                     {content}
                 </div>
-                """,
+                ''',
                 unsafe_allow_html=True
             )
 
