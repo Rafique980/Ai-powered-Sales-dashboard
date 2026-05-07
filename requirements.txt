@@ -6,3 +6,4 @@ statsmodels
 pandasai
 openai
 astor
+plotly
