@@ -14,7 +14,7 @@ if "GEMINI_API_KEY" in st.secrets:
     )
 
     model_ai = genai.GenerativeModel(
-        "gemini-2.0-flash"
+    "gemini-1.5-flash"
     )
 
 # ------------------ PAGE CONFIG ------------------
