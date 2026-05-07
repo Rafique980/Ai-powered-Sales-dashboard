@@ -4,5 +4,5 @@ matplotlib
 numpy
 statsmodels
 plotly
-google-generativeai
+google-generativeai>=0.8.5
 astor
