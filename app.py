@@ -17,37 +17,21 @@ client = None
 if "GROQ_API_KEY" in st.secrets:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# ---------------- CACHE: LOAD DATA ----------------
+# ---------------- CACHE ----------------
 @st.cache_data
 def load_data(file):
     return pd.read_csv(file)
 
-# ---------------- CACHE: MONTHLY SALES ----------------
-@st.cache_data
-def get_monthly_sales(df, date_col, sales_col):
-    df = df.copy()
-    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-    df[sales_col] = pd.to_numeric(df[sales_col], errors="coerce")
-    df = df.dropna(subset=[date_col, sales_col])
-    df = df.sort_values(date_col)
-
-    sales = df.groupby(date_col)[sales_col].sum()
-    sales.index = pd.to_datetime(sales.index)
-
-    return sales.resample("ME").sum(), df
-
-# ---------------- CACHE: FORECAST ----------------
 @st.cache_data
 def forecast_sales(series, steps):
     model = ARIMA(series, order=(1, 1, 1))
     model_fit = model.fit()
     return model_fit.forecast(steps=steps)
 
-# ---------------- UI HEADER ----------------
+# ---------------- UI ----------------
 st.title("📊 AI Sales Forecast Dashboard")
 st.caption("Upload CSV • Analyze Sales • Forecast Trends • AI Insights")
 
-# ---------------- UPLOAD ----------------
 uploaded_file = st.file_uploader("📁 Upload CSV File", type=["csv"])
 
 if not uploaded_file:
@@ -66,29 +50,42 @@ date_col = st.sidebar.selectbox("📅 Date Column", df_raw.columns)
 sales_col = st.sidebar.selectbox("💰 Sales Column", df_raw.columns)
 product_col = st.sidebar.selectbox("📦 Product Column", df_raw.columns)
 
-# Apply processing once
-sales_monthly, df = get_monthly_sales(df_raw, date_col, sales_col)
+# ---------------- CLEAN DATA ----------------
+df = df_raw.copy()
 
-if sales_monthly.empty:
-    st.error("No valid data after cleaning.")
-    st.stop()
+df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+df[sales_col] = pd.to_numeric(df[sales_col], errors="coerce")
+df = df.dropna(subset=[date_col, sales_col])
+df = df.sort_values(date_col)
 
-# ---------------- TREND ----------------
-st.subheader("📈 Sales Trend")
+# ---------------- DAILY SALES (IMPORTANT FIX) ----------------
+sales_daily = df.groupby(date_col)[sales_col].sum()
+sales_daily = sales_daily.sort_index()
+
+# ---------------- MONTHLY SALES ----------------
+sales_monthly = sales_daily.resample("ME").sum()
+
+# ---------------- ALL-TIME SALES GRAPH (FIXED) ----------------
+st.subheader("📈 Sales Trend (All-Time)")
 
 trend_df = pd.DataFrame({
-    "Date": sales_monthly.index,
-    "Sales": sales_monthly.values
+    "Date": sales_daily.index,
+    "Sales": sales_daily.values
 })
 
-fig = px.line(trend_df, x="Date", y="Sales", title="Sales Over Time")
+fig = px.line(trend_df, x="Date", y="Sales", title="All-Time Sales Trend")
 fig.update_layout(template="plotly_dark")
 st.plotly_chart(fig, use_container_width=True)
 
-# ---------------- MONTHLY ----------------
+# ---------------- MONTHLY TREND ----------------
 st.subheader("📅 Monthly Sales")
 
-fig2 = px.area(trend_df, x="Date", y="Sales", title="Monthly Sales Trend")
+monthly_df = pd.DataFrame({
+    "Month": sales_monthly.index,
+    "Sales": sales_monthly.values
+})
+
+fig2 = px.area(monthly_df, x="Month", y="Sales", title="Monthly Sales Trend")
 fig2.update_layout(template="plotly_dark")
 st.plotly_chart(fig2, use_container_width=True)
 
@@ -124,7 +121,7 @@ st.plotly_chart(fig3, use_container_width=True)
 st.subheader("🔮 Forecast")
 
 if len(sales_monthly) < 3:
-    st.warning("Need at least 3 months of data for forecasting.")
+    st.warning("Need at least 3 months of data.")
 else:
     steps = st.slider("Months to Forecast", 1, 12, 6)
 
@@ -148,7 +145,7 @@ else:
     fig4.add_trace(go.Scatter(
         x=sales_monthly.index,
         y=sales_monthly.values,
-        name="Actual"
+        name="Actual (Monthly)"
     ))
 
     fig4.add_trace(go.Scatter(
@@ -168,15 +165,17 @@ if client and st.button("Generate AI Analysis"):
 
     with st.spinner("AI analyzing..."):
 
+        top_products_text = top_products.to_string()
+
         prompt = f"""
         Total Sales: {sales_monthly.sum()}
         Avg Monthly: {sales_monthly.mean()}
         Max Monthly: {sales_monthly.max()}
 
         Top Products:
-        {top_products.to_string()}
+        {top_products_text}
 
-        Give insights, risks, recommendations.
+        Give insights, risks, and recommendations.
         """
 
         try:
@@ -208,7 +207,7 @@ if query and client:
 
     context = f"""
     Total Sales: {sales_monthly.sum()}
-    Avg: {sales_monthly.mean()}
+    Avg Monthly: {sales_monthly.mean()}
     Top Product: {top_products.index[0]}
     """
 
