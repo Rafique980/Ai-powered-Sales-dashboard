@@ -12,217 +12,94 @@ st.set_page_config(
     page_icon="📊"
 )
 
-# ---------------- GROQ AI SETUP ----------------
+# ---------------- GROQ SETUP ----------------
 client = None
-
 if "GROQ_API_KEY" in st.secrets:
-    client = Groq(
-        api_key=st.secrets["GROQ_API_KEY"]
-    )
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# ---------------- CUSTOM CSS ----------------
-st.markdown("""
-<style>
-.main {
-    background-color: #0E1117;
-    color: white;
-}
+# ---------------- CACHE: LOAD DATA ----------------
+@st.cache_data
+def load_data(file):
+    return pd.read_csv(file)
 
-.stApp {
-    background-color: #0E1117;
-}
+# ---------------- CACHE: MONTHLY SALES ----------------
+@st.cache_data
+def get_monthly_sales(df, date_col, sales_col):
+    df = df.copy()
+    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+    df[sales_col] = pd.to_numeric(df[sales_col], errors="coerce")
+    df = df.dropna(subset=[date_col, sales_col])
+    df = df.sort_values(date_col)
 
-h1, h2, h3 {
-    color: white;
-}
+    sales = df.groupby(date_col)[sales_col].sum()
+    sales.index = pd.to_datetime(sales.index)
 
-[data-testid="metric-container"] {
-    background-color: #1E1E1E;
-    border: 1px solid #333;
-    padding: 15px;
-    border-radius: 12px;
-}
+    return sales.resample("ME").sum(), df
 
-.stButton>button {
-    background: linear-gradient(90deg,#00C6FF,#0072FF);
-    color: white;
-    border-radius: 10px;
-    border: none;
-    padding: 0.6rem 1rem;
-    font-weight: bold;
-}
+# ---------------- CACHE: FORECAST ----------------
+@st.cache_data
+def forecast_sales(series, steps):
+    model = ARIMA(series, order=(1, 1, 1))
+    model_fit = model.fit()
+    return model_fit.forecast(steps=steps)
 
-.stButton>button:hover {
-    opacity: 0.9;
-}
-
-.ai-box {
-    background-color: #161B22;
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid #30363D;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- HEADER ----------------
+# ---------------- UI HEADER ----------------
 st.title("📊 AI Sales Forecast Dashboard")
 st.caption("Upload CSV • Analyze Sales • Forecast Trends • AI Insights")
 
-# ---------------- FILE UPLOAD ----------------
-uploaded_file = st.file_uploader(
-    "📁 Upload CSV File",
-    type=["csv"]
-)
+# ---------------- UPLOAD ----------------
+uploaded_file = st.file_uploader("📁 Upload CSV File", type=["csv"])
 
-if uploaded_file is None:
-    st.info("Please upload a CSV file to continue.")
+if not uploaded_file:
+    st.info("Upload a CSV file to continue.")
     st.stop()
 
-# ---------------- LOAD DATA ----------------
-try:
-    df = pd.read_csv(uploaded_file)
+df_raw = load_data(uploaded_file)
 
-except Exception as e:
-    st.error(f"Error reading file: {e}")
-    st.stop()
-
-# ---------------- DATA PREVIEW ----------------
 st.subheader("📄 Data Preview")
-
-st.dataframe(
-    df.head(),
-    use_container_width=True
-)
+st.dataframe(df_raw.head(), use_container_width=True)
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.header("⚙️ Configuration")
 
-date_col = st.sidebar.selectbox(
-    "📅 Select Date Column",
-    df.columns
-)
+date_col = st.sidebar.selectbox("📅 Date Column", df_raw.columns)
+sales_col = st.sidebar.selectbox("💰 Sales Column", df_raw.columns)
+product_col = st.sidebar.selectbox("📦 Product Column", df_raw.columns)
 
-sales_col = st.sidebar.selectbox(
-    "💰 Select Sales Column",
-    df.columns
-)
+# Apply processing once
+sales_monthly, df = get_monthly_sales(df_raw, date_col, sales_col)
 
-product_col = st.sidebar.selectbox(
-    "📦 Select Product Column",
-    df.columns
-)
-
-# ---------------- DATA CLEANING ----------------
-df[date_col] = pd.to_datetime(
-    df[date_col],
-    errors="coerce"
-)
-
-df[sales_col] = pd.to_numeric(
-    df[sales_col],
-    errors="coerce"
-)
-
-df = df.dropna(
-    subset=[date_col, sales_col]
-)
-
-if df.empty:
-    st.error("No valid data found after cleaning.")
+if sales_monthly.empty:
+    st.error("No valid data after cleaning.")
     st.stop()
 
-# ---------------- SORT DATA ----------------
-df = df.sort_values(date_col)
-
-# ---------------- CREATE SALES SERIES ----------------
-sales = (
-    df.groupby(date_col)[sales_col]
-    .sum()
-)
-
-sales.index = pd.to_datetime(sales.index)
-
-# ---------------- SALES TREND ----------------
+# ---------------- TREND ----------------
 st.subheader("📈 Sales Trend")
 
-sales_df = pd.DataFrame({
-    "Date": sales.index,
-    "Sales": sales.values
-})
-
-fig_sales = px.line(
-    sales_df,
-    x="Date",
-    y="Sales",
-    title="Sales Over Time"
-)
-
-fig_sales.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117"
-)
-
-st.plotly_chart(
-    fig_sales,
-    use_container_width=True
-)
-
-# ---------------- MONTHLY SALES ----------------
-sales_monthly = (
-    sales
-    .resample("ME")
-    .sum()
-)
-
-sales_monthly_df = pd.DataFrame({
-    "Month": sales_monthly.index,
+trend_df = pd.DataFrame({
+    "Date": sales_monthly.index,
     "Sales": sales_monthly.values
 })
 
+fig = px.line(trend_df, x="Date", y="Sales", title="Sales Over Time")
+fig.update_layout(template="plotly_dark")
+st.plotly_chart(fig, use_container_width=True)
+
+# ---------------- MONTHLY ----------------
 st.subheader("📅 Monthly Sales")
 
-fig_monthly = px.area(
-    sales_monthly_df,
-    x="Month",
-    y="Sales",
-    title="Monthly Sales Trend"
-)
-
-fig_monthly.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117"
-)
-
-st.plotly_chart(
-    fig_monthly,
-    use_container_width=True
-)
+fig2 = px.area(trend_df, x="Date", y="Sales", title="Monthly Sales Trend")
+fig2.update_layout(template="plotly_dark")
+st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------- METRICS ----------------
 st.subheader("📊 Key Metrics")
 
 col1, col2, col3 = st.columns(3)
 
-with col1:
-    st.metric(
-        "💰 Total Sales",
-        f"{sales_monthly.sum():,.0f}"
-    )
-
-with col2:
-    st.metric(
-        "📈 Avg Monthly Sales",
-        f"{sales_monthly.mean():,.0f}"
-    )
-
-with col3:
-    st.metric(
-        "🚀 Max Monthly Sales",
-        f"{sales_monthly.max():,.0f}"
-    )
+col1.metric("Total Sales", f"{sales_monthly.sum():,.0f}")
+col2.metric("Avg Monthly", f"{sales_monthly.mean():,.0f}")
+col3.metric("Max Monthly", f"{sales_monthly.max():,.0f}")
 
 # ---------------- TOP PRODUCTS ----------------
 st.subheader("🏆 Top Products")
@@ -234,255 +111,122 @@ top_products = (
     .head(10)
 )
 
-top_products_df = pd.DataFrame({
+top_df = pd.DataFrame({
     "Product": top_products.index.astype(str),
     "Sales": top_products.values
 })
 
-fig_products = px.bar(
-    top_products_df,
-    x="Product",
-    y="Sales",
-    color="Sales",
-    title="Top Selling Products"
-)
+fig3 = px.bar(top_df, x="Product", y="Sales", color="Sales", title="Top Products")
+fig3.update_layout(template="plotly_dark")
+st.plotly_chart(fig3, use_container_width=True)
 
-fig_products.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117"
-)
-
-st.plotly_chart(
-    fig_products,
-    use_container_width=True
-)
-
-# ---------------- FORECAST SECTION ----------------
-st.subheader("🔮 Sales Forecast")
+# ---------------- FORECAST ----------------
+st.subheader("🔮 Forecast")
 
 if len(sales_monthly) < 3:
-
-    st.warning(
-        "Need at least 3 months of data for forecasting."
-    )
-
+    st.warning("Need at least 3 months of data for forecasting.")
 else:
+    steps = st.slider("Months to Forecast", 1, 12, 6)
 
-    steps = st.slider(
-        "Months to Forecast",
-        1,
-        12,
-        6
+    forecast = forecast_sales(sales_monthly, steps)
+
+    future_dates = pd.date_range(
+        start=sales_monthly.index[-1] + pd.offsets.MonthEnd(1),
+        periods=steps,
+        freq="ME"
     )
 
-    try:
+    forecast_df = pd.DataFrame({
+        "Date": future_dates,
+        "Forecast": forecast.values
+    })
 
-        model = ARIMA(
-            sales_monthly,
-            order=(1, 1, 1)
-        )
+    st.dataframe(forecast_df, use_container_width=True)
 
-        model_fit = model.fit()
+    fig4 = go.Figure()
 
-        forecast = model_fit.forecast(
-            steps=steps
-        )
+    fig4.add_trace(go.Scatter(
+        x=sales_monthly.index,
+        y=sales_monthly.values,
+        name="Actual"
+    ))
 
-        forecast_index = pd.date_range(
-            start=sales_monthly.index[-1]
-            + pd.offsets.MonthEnd(1),
-            periods=steps,
-            freq="ME"
-        )
+    fig4.add_trace(go.Scatter(
+        x=forecast_df["Date"],
+        y=forecast_df["Forecast"],
+        name="Forecast",
+        line=dict(dash="dash")
+    ))
 
-        forecast_df = pd.DataFrame({
-            "Date": forecast_index,
-            "Forecast": forecast.values
-        })
-
-        st.dataframe(
-            forecast_df,
-            use_container_width=True
-        )
-
-        fig_forecast = go.Figure()
-
-        fig_forecast.add_trace(
-            go.Scatter(
-                x=sales_monthly.index,
-                y=sales_monthly.values,
-                mode="lines",
-                name="Actual Sales"
-            )
-        )
-
-        fig_forecast.add_trace(
-            go.Scatter(
-                x=forecast_df["Date"],
-                y=forecast_df["Forecast"],
-                mode="lines",
-                name="Forecast",
-                line=dict(dash="dash")
-            )
-        )
-
-        fig_forecast.update_layout(
-            template="plotly_dark",
-            title="Sales Forecast",
-            paper_bgcolor="#0E1117",
-            plot_bgcolor="#0E1117"
-        )
-
-        st.plotly_chart(
-            fig_forecast,
-            use_container_width=True
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"Forecast Error: {e}"
-        )
+    fig4.update_layout(template="plotly_dark", title="Forecast")
+    st.plotly_chart(fig4, use_container_width=True)
 
 # ---------------- AI INSIGHTS ----------------
 st.subheader("🤖 AI Insights")
 
-if client:
+if client and st.button("Generate AI Analysis"):
 
-    if st.button("Generate AI Analysis"):
+    with st.spinner("AI analyzing..."):
 
-        with st.spinner("AI analyzing data..."):
-
-            prompt = f"""
-            Analyze this sales dataset.
-
-            Total Sales:
-            {sales_monthly.sum()}
-
-            Average Monthly Sales:
-            {sales_monthly.mean()}
-
-            Maximum Monthly Sales:
-            {sales_monthly.max()}
-
-            Top Products:
-            {top_products.to_string()}
-
-            Give:
-            1. Business insights
-            2. Risks
-            3. Recommendations
-            """
-
-            try:
-
-                response = client.chat.completions.create(
-                    model="llama3-8b-8192",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are an expert business analyst."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
-                )
-
-                ai_text = (
-                    response
-                    .choices[0]
-                    .message
-                    .content
-                )
-
-                st.markdown(
-                    f"""
-                    <div class="ai-box">
-                    {ai_text}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            except Exception as e:
-
-                st.error(
-                    f"AI Error: {e}"
-                )
-
-else:
-
-    st.warning(
-        "Add GROQ_API_KEY in Streamlit secrets."
-    )
-
-# ---------------- AI CHAT ----------------
-st.subheader("💬 Ask AI About Your Data")
-
-query = st.text_input(
-    "Ask a question"
-)
-
-if query and client:
-
-    with st.spinner("Thinking..."):
-
-        context = f"""
-        Dataset Summary:
-
-        Total Sales:
-        {sales_monthly.sum()}
-
-        Average Monthly Sales:
-        {sales_monthly.mean()}
-
-        Best Product:
-        {top_products.index[0]}
+        prompt = f"""
+        Total Sales: {sales_monthly.sum()}
+        Avg Monthly: {sales_monthly.mean()}
+        Max Monthly: {sales_monthly.max()}
 
         Top Products:
         {top_products.to_string()}
+
+        Give insights, risks, recommendations.
         """
 
         try:
-
-            response = client.chat.completions.create(
+            res = client.chat.completions.create(
                 model="llama3-8b-8192",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a smart business data analyst."
-                    },
-                    {
-                        "role": "user",
-                        "content": context + "\n\nQuestion:\n" + query
-                    }
+                    {"role": "system", "content": "You are a business analyst."},
+                    {"role": "user", "content": prompt}
                 ]
             )
 
-            answer = (
-                response
-                .choices[0]
-                .message
-                .content
-            )
-
             st.markdown(
-                f"""
-                <div class="ai-box">
-                {answer}
-                </div>
-                """,
+                f"<div class='ai-box'>{res.choices[0].message.content}</div>",
                 unsafe_allow_html=True
             )
 
         except Exception as e:
+            st.error(f"AI Error: {e}")
 
-            st.error(
-                f"AI Error: {e}"
-            )
+elif not client:
+    st.warning("Add GROQ_API_KEY in Streamlit secrets.")
 
-# ---------------- FOOTER ----------------
+# ---------------- CHAT ----------------
+st.subheader("💬 Ask AI")
+
+query = st.text_input("Ask about your data")
+
+if query and client:
+
+    context = f"""
+    Total Sales: {sales_monthly.sum()}
+    Avg: {sales_monthly.mean()}
+    Top Product: {top_products.index[0]}
+    """
+
+    try:
+        res = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": "You are a data analyst."},
+                {"role": "user", "content": context + "\n\nQ: " + query}
+            ]
+        )
+
+        st.markdown(
+            f"<div class='ai-box'>{res.choices[0].message.content}</div>",
+            unsafe_allow_html=True
+        )
+
+    except Exception as e:
+        st.error(f"AI Error: {e}")
+
 st.divider()
