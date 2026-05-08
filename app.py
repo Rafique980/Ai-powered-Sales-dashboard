@@ -149,12 +149,24 @@ if df.empty:
     st.stop()
 
 # ------------------ TIME SERIES ------------------
+# Create time series
 sales = (
     df.groupby(date_col)[sales_col]
     .sum()
-    .sort_index()
+    .reset_index()
 )
 
+# Convert date column again safely
+sales[date_col] = pd.to_datetime(sales[date_col])
+
+# Set datetime index
+sales = sales.set_index(date_col)
+
+# Sort index
+sales = sales.sort_index()
+
+# Monthly aggregation
+sales_monthly = sales.resample("M").sum()
 # ------------------ SALES TREND ------------------
 st.subheader("📈 Sales Trend")
 
