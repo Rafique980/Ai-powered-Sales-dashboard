@@ -6,8 +6,6 @@ from statsmodels.tsa.arima.model import ARIMA
 import google.generativeai as genai
 
 # ------------------ GEMINI SETUP ------------------
-import google.generativeai as genai
-
 model_ai = None
 
 if "GEMINI_API_KEY" in st.secrets:
@@ -17,8 +15,9 @@ if "GEMINI_API_KEY" in st.secrets:
     )
 
     model_ai = genai.GenerativeModel(
-    "gemini-1.5-flash"
+        "gemini-2.0-flash"
     )
+
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(
     page_title="AI Sales Forecast Dashboard",
@@ -148,31 +147,32 @@ if df.empty:
     st.error("No valid data available after cleaning")
     st.stop()
 
-# ------------------ TIME SERIES ------------------
-# Create time series
+# ------------------ CREATE TIME SERIES ------------------
 sales = (
     df.groupby(date_col)[sales_col]
     .sum()
     .reset_index()
 )
 
-# Convert date column again safely
+# Convert dates properly
 sales[date_col] = pd.to_datetime(sales[date_col])
 
 # Set datetime index
 sales = sales.set_index(date_col)
 
-# Sort index
+# Sort dates
 sales = sales.sort_index()
 
 # Monthly aggregation
 sales_monthly = sales.resample("M").sum()
+
 # ------------------ SALES TREND ------------------
 st.subheader("📈 Sales Trend")
 
 fig_sales = px.line(
+    sales,
     x=sales.index,
-    y=sales.values,
+    y=sales_col,
     labels={
         "x": "Date",
         "y": "Sales"
@@ -198,15 +198,12 @@ st.plotly_chart(
 )
 
 # ------------------ MONTHLY SALES ------------------
-sales_monthly = sales.groupby(
-    pd.Grouper(freq="ME")
-).sum()
-
 st.subheader("🗓️ Monthly Sales Trend")
 
 fig_month = px.area(
+    sales_monthly,
     x=sales_monthly.index,
-    y=sales_monthly.values,
+    y=sales_col,
     labels={
         "x": "Month",
         "y": "Sales"
@@ -241,7 +238,7 @@ with c1:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">Total Sales</div>
-        <div class="metric-value">{sales_monthly.sum():,.0f}</div>
+        <div class="metric-value">{sales_monthly[sales_col].sum():,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -249,7 +246,7 @@ with c2:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">Average Monthly Sales</div>
-        <div class="metric-value">{sales_monthly.mean():,.0f}</div>
+        <div class="metric-value">{sales_monthly[sales_col].mean():,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -257,7 +254,7 @@ with c3:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">Maximum Monthly Sales</div>
-        <div class="metric-value">{sales_monthly.max():,.0f}</div>
+        <div class="metric-value">{sales_monthly[sales_col].max():,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -310,76 +307,81 @@ steps = st.slider(
     6
 )
 
-with st.spinner("Training forecasting model..."):
+try:
 
-    model = ARIMA(
-        sales_monthly,
-        order=(1,1,1)
+    with st.spinner("Training forecasting model..."):
+
+        model = ARIMA(
+            sales_monthly[sales_col],
+            order=(1,1,1)
+        )
+
+        model_fit = model.fit()
+
+        forecast_res = model_fit.get_forecast(
+            steps=steps
+        )
+
+        forecast = forecast_res.predicted_mean
+
+    forecast_index = pd.date_range(
+        start=sales_monthly.index[-1] + pd.offsets.MonthEnd(1),
+        periods=steps,
+        freq="M"
     )
 
-    model_fit = model.fit()
+    forecast_df = pd.DataFrame({
+        "Date": forecast_index,
+        "Forecast": forecast.values
+    })
 
-    forecast_res = model_fit.get_forecast(
-        steps=steps
+    # ------------------ FORECAST TABLE ------------------
+    st.dataframe(
+        forecast_df,
+        use_container_width=True,
+        hide_index=True
     )
 
-    forecast = forecast_res.predicted_mean
+    # ------------------ FORECAST CHART ------------------
+    fig_forecast = go.Figure()
 
-forecast_index = pd.date_range(
-    start=sales_monthly.index[-1] + pd.offsets.MonthEnd(1),
-    periods=steps,
-    freq=pd.offsets.MonthEnd()
-)
-
-forecast_df = pd.DataFrame({
-    "Date": forecast_index,
-    "Forecast": forecast.values
-})
-
-# ------------------ FORECAST TABLE ------------------
-st.dataframe(
-    forecast_df,
-    use_container_width=True,
-    hide_index=True
-)
-
-# ------------------ FORECAST CHART ------------------
-fig_forecast = go.Figure()
-
-fig_forecast.add_trace(
-    go.Scatter(
-        x=sales_monthly.index,
-        y=sales_monthly.values,
-        mode="lines",
-        name="Actual Sales",
-        line=dict(color=PRIMARY, width=3)
-    )
-)
-
-fig_forecast.add_trace(
-    go.Scatter(
-        x=forecast_df["Date"],
-        y=forecast_df["Forecast"],
-        mode="lines",
-        name="Forecast",
-        line=dict(
-            color=ACCENT,
-            width=3,
-            dash="dash"
+    fig_forecast.add_trace(
+        go.Scatter(
+            x=sales_monthly.index,
+            y=sales_monthly[sales_col],
+            mode="lines",
+            name="Actual Sales",
+            line=dict(color=PRIMARY, width=3)
         )
     )
-)
 
-fig_forecast.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(255,255,255,0.02)"
-)
+    fig_forecast.add_trace(
+        go.Scatter(
+            x=forecast_df["Date"],
+            y=forecast_df["Forecast"],
+            mode="lines",
+            name="Forecast",
+            line=dict(
+                color=ACCENT,
+                width=3,
+                dash="dash"
+            )
+        )
+    )
 
-st.plotly_chart(
-    fig_forecast,
-    use_container_width=True
-)
+    fig_forecast.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(255,255,255,0.02)"
+    )
+
+    st.plotly_chart(
+        fig_forecast,
+        use_container_width=True
+    )
+
+except Exception as e:
+    st.error(f"Forecast Error: {e}")
 
 # ------------------ GEMINI AI INSIGHTS ------------------
 st.subheader("🤖 Gemini AI Insights")
@@ -396,19 +398,16 @@ You are an expert business analyst.
 Analyze this sales dataset.
 
 Total Sales:
-{sales_monthly.sum()}
+{sales_monthly[sales_col].sum()}
 
 Average Monthly Sales:
-{sales_monthly.mean()}
+{sales_monthly[sales_col].mean()}
 
 Maximum Monthly Sales:
-{sales_monthly.max()}
+{sales_monthly[sales_col].max()}
 
 Top Products:
 {top_products.to_string()}
-
-Forecast:
-{forecast.values[:5].tolist()}
 
 Provide:
 1. Business insights
@@ -424,7 +423,7 @@ Provide:
                 )
 
                 content = response.text.replace(
-                    "\\n",
+                    "\n",
                     "<br>"
                 )
 
@@ -463,21 +462,18 @@ if query and model_ai:
 Dataset Summary:
 
 Total Sales:
-{sales_monthly.sum()}
+{sales_monthly[sales_col].sum()}
 
 Average Monthly Sales:
-{sales_monthly.mean()}
+{sales_monthly[sales_col].mean()}
 
 Top Products:
 {top_products.to_string()}
-
-Forecast:
-{forecast.values[:5].tolist()}
 """
 
             final_prompt = (
                 context +
-                "\\n\\nUser Question:\\n" +
+                "\n\nUser Question:\n" +
                 query
             )
 
@@ -486,7 +482,7 @@ Forecast:
             )
 
             content = response.text.replace(
-                "\\n",
+                "\n",
                 "<br>"
             )
 
