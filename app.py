@@ -486,7 +486,3 @@ if query and client:
 
 # ---------------- FOOTER ----------------
 st.divider()
-
-st.caption(
-    "Built with Streamlit • Plotly • ARIMA • Groq AI"
-)
