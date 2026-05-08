@@ -3,119 +3,91 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from statsmodels.tsa.arima.model import ARIMA
-import google.generativeai as genai
+from groq import Groq
 
-# ------------------ GEMINI SETUP ------------------
-
-model_ai = None
-
-if "GEMINI_API_KEY" in st.secrets:
-
-    genai.configure(
-        api_key=st.secrets["GEMINI_API_KEY"]
-    )
-
-    model_ai = genai.GenerativeModel(
-        "gemini-2.0-flash"
-    )
-
-# ------------------ PAGE CONFIG ------------------
-
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="AI Sales Forecast Dashboard",
-    page_icon="📊",
-    layout="wide"
+    layout="wide",
+    page_icon="📊"
 )
 
-# ------------------ COLORS ------------------
+# ---------------- GROQ AI SETUP ----------------
+client = None
 
-PRIMARY = "#00E5FF"
-ACCENT = "#7C5CFF"
-BG = "#0B1220"
-TEXT = "#E6EEF8"
-MUTED = "#8AA0BF"
+if "GROQ_API_KEY" in st.secrets:
+    client = Groq(
+        api_key=st.secrets["GROQ_API_KEY"]
+    )
 
-# ------------------ CUSTOM CSS ------------------
-
-st.markdown(f"""
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
 <style>
+.main {
+    background-color: #0E1117;
+    color: white;
+}
 
-.stApp {{
-    background: {BG};
-    color: {TEXT};
-}}
+.stApp {
+    background-color: #0E1117;
+}
 
-.hero-title {{
-    font-size: 2.7rem;
-    font-weight: 800;
-    background: linear-gradient(90deg, {PRIMARY}, {ACCENT});
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}}
+h1, h2, h3 {
+    color: white;
+}
 
-.hero-sub {{
-    color: {MUTED};
-    margin-bottom: 20px;
-}}
+[data-testid="metric-container"] {
+    background-color: #1E1E1E;
+    border: 1px solid #333;
+    padding: 15px;
+    border-radius: 12px;
+}
 
-.metric-card {{
-    background: #111A2E;
-    padding: 20px;
-    border-radius: 15px;
-    border: 1px solid rgba(255,255,255,0.08);
-}}
-
-.metric-title {{
-    color: {MUTED};
-    font-size: 0.9rem;
-}}
-
-.metric-value {{
-    color: {TEXT};
-    font-size: 1.8rem;
+.stButton>button {
+    background: linear-gradient(90deg,#00C6FF,#0072FF);
+    color: white;
+    border-radius: 10px;
+    border: none;
+    padding: 0.6rem 1rem;
     font-weight: bold;
-}}
+}
 
-.ai-card {{
-    background: rgba(124,92,255,0.08);
+.stButton>button:hover {
+    opacity: 0.9;
+}
+
+.ai-box {
+    background-color: #161B22;
     padding: 20px;
-    border-radius: 15px;
-    border-left: 4px solid {ACCENT};
-    margin-top: 10px;
-}}
-
+    border-radius: 12px;
+    border: 1px solid #30363D;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------ HEADER ------------------
+# ---------------- HEADER ----------------
+st.title("📊 AI Sales Forecast Dashboard")
+st.caption("Upload CSV • Analyze Sales • Forecast Trends • AI Insights")
 
-st.markdown(
-    '<div class="hero-title">📊 AI Sales Forecast Dashboard</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="hero-sub">Upload CSV data, visualize trends, forecast sales, and get AI insights.</div>',
-    unsafe_allow_html=True
-)
-
-# ------------------ FILE UPLOAD ------------------
-
+# ---------------- FILE UPLOAD ----------------
 uploaded_file = st.file_uploader(
     "📁 Upload CSV File",
     type=["csv"]
 )
 
 if uploaded_file is None:
-    st.warning("Please upload a CSV file")
+    st.info("Please upload a CSV file to continue.")
     st.stop()
 
-# ------------------ READ CSV ------------------
+# ---------------- LOAD DATA ----------------
+try:
+    df = pd.read_csv(uploaded_file)
 
-df = pd.read_csv(uploaded_file)
+except Exception as e:
+    st.error(f"Error reading file: {e}")
+    st.stop()
 
-# ------------------ DATA PREVIEW ------------------
-
+# ---------------- DATA PREVIEW ----------------
 st.subheader("📄 Data Preview")
 
 st.dataframe(
@@ -123,8 +95,7 @@ st.dataframe(
     use_container_width=True
 )
 
-# ------------------ SIDEBAR CONFIG ------------------
-
+# ---------------- SIDEBAR ----------------
 st.sidebar.header("⚙️ Configuration")
 
 date_col = st.sidebar.selectbox(
@@ -142,8 +113,7 @@ product_col = st.sidebar.selectbox(
     df.columns
 )
 
-# ------------------ DATA CLEANING ------------------
-
+# ---------------- DATA CLEANING ----------------
 df[date_col] = pd.to_datetime(
     df[date_col],
     errors="coerce"
@@ -159,48 +129,39 @@ df = df.dropna(
 )
 
 if df.empty:
-    st.error("No valid data after cleaning")
+    st.error("No valid data found after cleaning.")
     st.stop()
 
-# ------------------ SALES SERIES ------------------
+# ---------------- SORT DATA ----------------
+df = df.sort_values(date_col)
 
+# ---------------- CREATE SALES SERIES ----------------
 sales = (
     df.groupby(date_col)[sales_col]
     .sum()
-    .sort_index()
 )
 
-# IMPORTANT
 sales.index = pd.to_datetime(sales.index)
 
-# ------------------ MONTHLY SALES ------------------
-
-sales_monthly = sales.resample("M").sum()
-
-# ------------------ SALES TREND ------------------
-
+# ---------------- SALES TREND ----------------
 st.subheader("📈 Sales Trend")
 
-fig_sales = px.line(
-    x=sales.index,
-    y=sales.values,
-    labels={
-        "x": "Date",
-        "y": "Sales"
-    }
-)
+sales_df = pd.DataFrame({
+    "Date": sales.index,
+    "Sales": sales.values
+})
 
-fig_sales.update_traces(
-    line=dict(
-        color=PRIMARY,
-        width=3
-    )
+fig_sales = px.line(
+    sales_df,
+    x="Date",
+    y="Sales",
+    title="Sales Over Time"
 )
 
 fig_sales.update_layout(
     template="plotly_dark",
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(255,255,255,0.02)"
+    paper_bgcolor="#0E1117",
+    plot_bgcolor="#0E1117"
 )
 
 st.plotly_chart(
@@ -208,126 +169,118 @@ st.plotly_chart(
     use_container_width=True
 )
 
-# ------------------ MONTHLY TREND ------------------
-
-st.subheader("🗓️ Monthly Sales Trend")
-
-fig_month = px.area(
-    x=sales_monthly.index,
-    y=sales_monthly.values,
-    labels={
-        "x": "Month",
-        "y": "Sales"
-    }
+# ---------------- MONTHLY SALES ----------------
+sales_monthly = (
+    sales
+    .resample("ME")
+    .sum()
 )
 
-fig_month.update_traces(
-    line=dict(
-        color=ACCENT,
-        width=3
-    ),
-    fillcolor="rgba(124,92,255,0.2)"
+sales_monthly_df = pd.DataFrame({
+    "Month": sales_monthly.index,
+    "Sales": sales_monthly.values
+})
+
+st.subheader("📅 Monthly Sales")
+
+fig_monthly = px.area(
+    sales_monthly_df,
+    x="Month",
+    y="Sales",
+    title="Monthly Sales Trend"
 )
 
-fig_month.update_layout(
+fig_monthly.update_layout(
     template="plotly_dark",
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(255,255,255,0.02)"
+    paper_bgcolor="#0E1117",
+    plot_bgcolor="#0E1117"
 )
 
 st.plotly_chart(
-    fig_month,
+    fig_monthly,
     use_container_width=True
 )
 
-# ------------------ METRICS ------------------
-
+# ---------------- METRICS ----------------
 st.subheader("📊 Key Metrics")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-title">Total Sales</div>
-        <div class="metric-value">{sales_monthly.sum():,.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        "💰 Total Sales",
+        f"{sales_monthly.sum():,.0f}"
+    )
 
 with col2:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-title">Average Monthly Sales</div>
-        <div class="metric-value">{sales_monthly.mean():,.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        "📈 Avg Monthly Sales",
+        f"{sales_monthly.mean():,.0f}"
+    )
 
 with col3:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-title">Maximum Monthly Sales</div>
-        <div class="metric-value">{sales_monthly.max():,.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        "🚀 Max Monthly Sales",
+        f"{sales_monthly.max():,.0f}"
+    )
 
-# ------------------ TOP PRODUCTS ------------------
-
+# ---------------- TOP PRODUCTS ----------------
 st.subheader("🏆 Top Products")
 
 top_products = (
     df.groupby(product_col)[sales_col]
     .sum()
     .sort_values(ascending=False)
-    .head(5)
+    .head(10)
 )
 
-fig_top = px.bar(
-    x=top_products.values,
-    y=top_products.index.astype(str),
-    orientation="h",
-    labels={
-        "x": "Sales",
-        "y": "Product"
-    },
-    color=top_products.values,
-    color_continuous_scale="Blues"
+top_products_df = pd.DataFrame({
+    "Product": top_products.index.astype(str),
+    "Sales": top_products.values
+})
+
+fig_products = px.bar(
+    top_products_df,
+    x="Product",
+    y="Sales",
+    color="Sales",
+    title="Top Selling Products"
 )
 
-fig_top.update_layout(
+fig_products.update_layout(
     template="plotly_dark",
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(255,255,255,0.02)",
-    yaxis=dict(autorange="reversed"),
-    coloraxis_showscale=False
+    paper_bgcolor="#0E1117",
+    plot_bgcolor="#0E1117"
 )
 
 st.plotly_chart(
-    fig_top,
+    fig_products,
     use_container_width=True
 )
 
-# ------------------ FORECAST ------------------
-
+# ---------------- FORECAST SECTION ----------------
 st.subheader("🔮 Sales Forecast")
 
 if len(sales_monthly) < 3:
-    st.error("Not enough data for forecasting")
-    st.stop()
 
-steps = st.slider(
-    "Months to Forecast",
-    1,
-    12,
-    6
-)
+    st.warning(
+        "Need at least 3 months of data for forecasting."
+    )
 
-try:
+else:
 
-    with st.spinner("Training ARIMA model..."):
+    steps = st.slider(
+        "Months to Forecast",
+        1,
+        12,
+        6
+    )
+
+    try:
 
         model = ARIMA(
             sales_monthly,
-            order=(1,1,1)
+            order=(1, 1, 1)
         )
 
         model_fit = model.fit()
@@ -336,101 +289,149 @@ try:
             steps=steps
         )
 
-    forecast_index = pd.date_range(
-        start=sales_monthly.index[-1] + pd.offsets.MonthEnd(1),
-        periods=steps,
-        freq="M"
-    )
+        forecast_index = pd.date_range(
+            start=sales_monthly.index[-1]
+            + pd.offsets.MonthEnd(1),
+            periods=steps,
+            freq="ME"
+        )
 
-    forecast_df = pd.DataFrame({
-        "Date": forecast_index,
-        "Forecast": forecast.values
-    })
+        forecast_df = pd.DataFrame({
+            "Date": forecast_index,
+            "Forecast": forecast.values
+        })
 
-    # ------------------ FORECAST TABLE ------------------
+        st.dataframe(
+            forecast_df,
+            use_container_width=True
+        )
 
-    st.dataframe(
-        forecast_df,
-        use_container_width=True,
-        hide_index=True
-    )
+        fig_forecast = go.Figure()
 
-    # ------------------ FORECAST CHART ------------------
-
-    fig_forecast = go.Figure()
-
-    fig_forecast.add_trace(
-        go.Scatter(
-            x=sales_monthly.index,
-            y=sales_monthly.values,
-            mode="lines",
-            name="Actual Sales",
-            line=dict(
-                color=PRIMARY,
-                width=3
+        fig_forecast.add_trace(
+            go.Scatter(
+                x=sales_monthly.index,
+                y=sales_monthly.values,
+                mode="lines",
+                name="Actual Sales"
             )
         )
-    )
 
-    fig_forecast.add_trace(
-        go.Scatter(
-            x=forecast_df["Date"],
-            y=forecast_df["Forecast"],
-            mode="lines",
-            name="Forecast",
-            line=dict(
-                color=ACCENT,
-                width=3,
-                dash="dash"
+        fig_forecast.add_trace(
+            go.Scatter(
+                x=forecast_df["Date"],
+                y=forecast_df["Forecast"],
+                mode="lines",
+                name="Forecast",
+                line=dict(dash="dash")
             )
         )
-    )
 
-    fig_forecast.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(255,255,255,0.02)"
-    )
+        fig_forecast.update_layout(
+            template="plotly_dark",
+            title="Sales Forecast",
+            paper_bgcolor="#0E1117",
+            plot_bgcolor="#0E1117"
+        )
 
-    st.plotly_chart(
-        fig_forecast,
-        use_container_width=True
-    )
+        st.plotly_chart(
+            fig_forecast,
+            use_container_width=True
+        )
 
-except Exception as e:
-    st.error(f"Forecast Error: {e}")
+    except Exception as e:
 
-# ------------------ AI INSIGHTS ------------------
+        st.error(
+            f"Forecast Error: {e}"
+        )
 
+# ---------------- AI INSIGHTS ----------------
 st.subheader("🤖 AI Insights")
 
-if st.button("✨ Generate Insights"):
+if client:
 
-    # fallback insights
-    trend = (
-        "increasing 📈"
-        if sales_monthly.iloc[-1] > sales_monthly.iloc[0]
-        else "stable ➖"
+    if st.button("Generate AI Analysis"):
+
+        with st.spinner("AI analyzing data..."):
+
+            prompt = f"""
+            Analyze this sales dataset.
+
+            Total Sales:
+            {sales_monthly.sum()}
+
+            Average Monthly Sales:
+            {sales_monthly.mean()}
+
+            Maximum Monthly Sales:
+            {sales_monthly.max()}
+
+            Top Products:
+            {top_products.to_string()}
+
+            Give:
+            1. Business insights
+            2. Risks
+            3. Recommendations
+            """
+
+            try:
+
+                response = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are an expert business analyst."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                )
+
+                ai_text = (
+                    response
+                    .choices[0]
+                    .message
+                    .content
+                )
+
+                st.markdown(
+                    f"""
+                    <div class="ai-box">
+                    {ai_text}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            except Exception as e:
+
+                st.error(
+                    f"AI Error: {e}"
+                )
+
+else:
+
+    st.warning(
+        "Add GROQ_API_KEY in Streamlit secrets."
     )
 
-    fallback_insights = f"""
-    • Sales trend appears {trend}
+# ---------------- AI CHAT ----------------
+st.subheader("💬 Ask AI About Your Data")
 
-    • Total Sales: {sales_monthly.sum():,.0f}
+query = st.text_input(
+    "Ask a question"
+)
 
-    • Average Monthly Sales:
-      {sales_monthly.mean():,.0f}
+if query and client:
 
-    • Best Performing Product:
-      {top_products.index[0]}
+    with st.spinner("Thinking..."):
 
-    • Forecast successfully generated using ARIMA.
-    """
-
-    if model_ai:
-
-        prompt = f"""
-        Analyze this sales dataset.
+        context = f"""
+        Dataset Summary:
 
         Total Sales:
         {sales_monthly.sum()}
@@ -438,129 +439,54 @@ if st.button("✨ Generate Insights"):
         Average Monthly Sales:
         {sales_monthly.mean()}
 
+        Best Product:
+        {top_products.index[0]}
+
         Top Products:
         {top_products.to_string()}
-
-        Forecast:
-        {forecast.values.tolist()}
-
-        Give business insights and recommendations.
         """
 
         try:
 
-            response = model_ai.generate_content(
-                prompt
+            response = client.chat.completions.create(
+                model="llama3-8b-8192",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a smart business data analyst."
+                    },
+                    {
+                        "role": "user",
+                        "content": context + "\n\nQuestion:\n" + query
+                    }
+                ]
             )
 
-            ai_text = response.text
+            answer = (
+                response
+                .choices[0]
+                .message
+                .content
+            )
 
             st.markdown(
                 f"""
-                <div class="ai-card">
-                <h3>🤖 Gemini AI Analysis</h3>
-                {ai_text}
+                <div class="ai-box">
+                {answer}
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-        except Exception:
+        except Exception as e:
 
-            st.warning(
-                "Gemini quota exceeded. Showing smart fallback insights."
+            st.error(
+                f"AI Error: {e}"
             )
 
-            st.markdown(
-                f"""
-                <div class="ai-card">
-                <h3>📊 Smart Insights</h3>
-                {fallback_insights}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+# ---------------- FOOTER ----------------
+st.divider()
 
-    else:
-
-        st.markdown(
-            f"""
-            <div class="ai-card">
-            <h3>📊 Smart Insights</h3>
-            {fallback_insights}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-# ------------------ AI CHAT ------------------
-
-st.subheader("💬 Ask AI About Your Data")
-
-query = st.text_input(
-    "Ask a question about your sales data"
+st.caption(
+    "Built with Streamlit • Plotly • ARIMA • Groq AI"
 )
-
-if query:
-
-    context = f"""
-    Total Sales:
-    {sales_monthly.sum()}
-
-    Average Monthly Sales:
-    {sales_monthly.mean()}
-
-    Top Products:
-    {top_products.to_string()}
-    """
-
-    if model_ai:
-
-        try:
-
-            response = model_ai.generate_content(
-                context + "\n\nQuestion:\n" + query
-            )
-
-            st.markdown(
-                f"""
-                <div class="ai-card">
-                <h3>💬 Gemini Response</h3>
-                {response.text}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        except Exception:
-
-            st.warning(
-                "Gemini quota exceeded. Showing fallback response."
-            )
-
-            st.markdown(
-                f"""
-                <div class="ai-card">
-                <h3>📊 Smart Response</h3>
-
-                Based on your dataset:
-
-                • Total Sales:
-                {sales_monthly.sum():,.0f}
-
-                • Best Product:
-                {top_products.index[0]}
-
-                • Sales Trend:
-                {"Increasing" if sales_monthly.iloc[-1] > sales_monthly.iloc[0] else "Stable"}
-
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-    else:
-
-        st.info(
-            "Add GEMINI_API_KEY in Streamlit secrets to enable AI."
-        )
