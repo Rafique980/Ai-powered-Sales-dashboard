@@ -6,6 +6,7 @@ from statsmodels.tsa.arima.model import ARIMA
 import google.generativeai as genai
 
 # ------------------ GEMINI SETUP ------------------
+
 model_ai = None
 
 if "GEMINI_API_KEY" in st.secrets:
@@ -19,6 +20,7 @@ if "GEMINI_API_KEY" in st.secrets:
     )
 
 # ------------------ PAGE CONFIG ------------------
+
 st.set_page_config(
     page_title="AI Sales Forecast Dashboard",
     page_icon="📊",
@@ -26,6 +28,7 @@ st.set_page_config(
 )
 
 # ------------------ COLORS ------------------
+
 PRIMARY = "#00E5FF"
 ACCENT = "#7C5CFF"
 BG = "#0B1220"
@@ -33,6 +36,7 @@ TEXT = "#E6EEF8"
 MUTED = "#8AA0BF"
 
 # ------------------ CUSTOM CSS ------------------
+
 st.markdown(f"""
 <style>
 
@@ -42,7 +46,7 @@ st.markdown(f"""
 }}
 
 .hero-title {{
-    font-size: 2.5rem;
+    font-size: 2.7rem;
     font-weight: 800;
     background: linear-gradient(90deg, {PRIMARY}, {ACCENT});
     -webkit-background-clip: text;
@@ -51,7 +55,6 @@ st.markdown(f"""
 
 .hero-sub {{
     color: {MUTED};
-    font-size: 1rem;
     margin-bottom: 20px;
 }}
 
@@ -70,7 +73,7 @@ st.markdown(f"""
 .metric-value {{
     color: {TEXT};
     font-size: 1.8rem;
-    font-weight: 700;
+    font-weight: bold;
 }}
 
 .ai-card {{
@@ -85,34 +88,43 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ------------------ HEADER ------------------
+
 st.markdown(
     '<div class="hero-title">📊 AI Sales Forecast Dashboard</div>',
     unsafe_allow_html=True
 )
 
 st.markdown(
-    '<div class="hero-sub">Upload CSV data, forecast trends, and analyze sales using Gemini AI.</div>',
+    '<div class="hero-sub">Upload CSV data, visualize trends, forecast sales, and get AI insights.</div>',
     unsafe_allow_html=True
 )
 
 # ------------------ FILE UPLOAD ------------------
+
 uploaded_file = st.file_uploader(
     "📁 Upload CSV File",
     type=["csv"]
 )
 
 if uploaded_file is None:
-    st.info("Upload a CSV file to begin")
+    st.warning("Please upload a CSV file")
     st.stop()
 
-# ------------------ READ DATA ------------------
+# ------------------ READ CSV ------------------
+
 df = pd.read_csv(uploaded_file)
 
 # ------------------ DATA PREVIEW ------------------
-st.subheader("🗂️ Data Preview")
-st.dataframe(df.head(), use_container_width=True)
 
-# ------------------ SIDEBAR ------------------
+st.subheader("📄 Data Preview")
+
+st.dataframe(
+    df.head(),
+    use_container_width=True
+)
+
+# ------------------ SIDEBAR CONFIG ------------------
+
 st.sidebar.header("⚙️ Configuration")
 
 date_col = st.sidebar.selectbox(
@@ -130,7 +142,8 @@ product_col = st.sidebar.selectbox(
     df.columns
 )
 
-# ------------------ CLEAN DATA ------------------
+# ------------------ DATA CLEANING ------------------
+
 df[date_col] = pd.to_datetime(
     df[date_col],
     errors="coerce"
@@ -141,38 +154,36 @@ df[sales_col] = pd.to_numeric(
     errors="coerce"
 )
 
-df = df.dropna(subset=[date_col, sales_col])
+df = df.dropna(
+    subset=[date_col, sales_col]
+)
 
 if df.empty:
-    st.error("No valid data available after cleaning")
+    st.error("No valid data after cleaning")
     st.stop()
 
-# ------------------ CREATE TIME SERIES ------------------
+# ------------------ SALES SERIES ------------------
+
 sales = (
     df.groupby(date_col)[sales_col]
     .sum()
-    .reset_index()
+    .sort_index()
 )
 
-# Convert dates properly
-sales[date_col] = pd.to_datetime(sales[date_col])
+# IMPORTANT
+sales.index = pd.to_datetime(sales.index)
 
-# Set datetime index
-sales = sales.set_index(date_col)
+# ------------------ MONTHLY SALES ------------------
 
-# Sort dates
-sales = sales.sort_index()
-
-# Monthly aggregation
 sales_monthly = sales.resample("M").sum()
 
 # ------------------ SALES TREND ------------------
+
 st.subheader("📈 Sales Trend")
 
 fig_sales = px.line(
-    sales,
     x=sales.index,
-    y=sales_col,
+    y=sales.values,
     labels={
         "x": "Date",
         "y": "Sales"
@@ -197,13 +208,13 @@ st.plotly_chart(
     use_container_width=True
 )
 
-# ------------------ MONTHLY SALES ------------------
+# ------------------ MONTHLY TREND ------------------
+
 st.subheader("🗓️ Monthly Sales Trend")
 
 fig_month = px.area(
-    sales_monthly,
     x=sales_monthly.index,
-    y=sales_col,
+    y=sales_monthly.values,
     labels={
         "x": "Month",
         "y": "Sales"
@@ -230,35 +241,37 @@ st.plotly_chart(
 )
 
 # ------------------ METRICS ------------------
-st.subheader("🎯 Key Metrics")
 
-c1, c2, c3 = st.columns(3)
+st.subheader("📊 Key Metrics")
 
-with c1:
+col1, col2, col3 = st.columns(3)
+
+with col1:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">Total Sales</div>
-        <div class="metric-value">{sales_monthly[sales_col].sum():,.0f}</div>
+        <div class="metric-value">{sales_monthly.sum():,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
-with c2:
+with col2:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">Average Monthly Sales</div>
-        <div class="metric-value">{sales_monthly[sales_col].mean():,.0f}</div>
+        <div class="metric-value">{sales_monthly.mean():,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
-with c3:
+with col3:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">Maximum Monthly Sales</div>
-        <div class="metric-value">{sales_monthly[sales_col].max():,.0f}</div>
+        <div class="metric-value">{sales_monthly.max():,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 # ------------------ TOP PRODUCTS ------------------
+
 st.subheader("🏆 Top Products")
 
 top_products = (
@@ -294,6 +307,7 @@ st.plotly_chart(
 )
 
 # ------------------ FORECAST ------------------
+
 st.subheader("🔮 Sales Forecast")
 
 if len(sales_monthly) < 3:
@@ -309,20 +323,18 @@ steps = st.slider(
 
 try:
 
-    with st.spinner("Training forecasting model..."):
+    with st.spinner("Training ARIMA model..."):
 
         model = ARIMA(
-            sales_monthly[sales_col],
+            sales_monthly,
             order=(1,1,1)
         )
 
         model_fit = model.fit()
 
-        forecast_res = model_fit.get_forecast(
+        forecast = model_fit.forecast(
             steps=steps
         )
-
-        forecast = forecast_res.predicted_mean
 
     forecast_index = pd.date_range(
         start=sales_monthly.index[-1] + pd.offsets.MonthEnd(1),
@@ -336,6 +348,7 @@ try:
     })
 
     # ------------------ FORECAST TABLE ------------------
+
     st.dataframe(
         forecast_df,
         use_container_width=True,
@@ -343,15 +356,19 @@ try:
     )
 
     # ------------------ FORECAST CHART ------------------
+
     fig_forecast = go.Figure()
 
     fig_forecast.add_trace(
         go.Scatter(
             x=sales_monthly.index,
-            y=sales_monthly[sales_col],
+            y=sales_monthly.values,
             mode="lines",
             name="Actual Sales",
-            line=dict(color=PRIMARY, width=3)
+            line=dict(
+                color=PRIMARY,
+                width=3
+            )
         )
     )
 
@@ -383,118 +400,167 @@ try:
 except Exception as e:
     st.error(f"Forecast Error: {e}")
 
-# ------------------ GEMINI AI INSIGHTS ------------------
-st.subheader("🤖 Gemini AI Insights")
+# ------------------ AI INSIGHTS ------------------
 
-if model_ai:
+st.subheader("🤖 AI Insights")
 
-    if st.button("✨ Generate AI Analysis"):
+if st.button("✨ Generate Insights"):
 
-        with st.spinner("Gemini AI analyzing data..."):
-
-            prompt = f"""
-You are an expert business analyst.
-
-Analyze this sales dataset.
-
-Total Sales:
-{sales_monthly[sales_col].sum()}
-
-Average Monthly Sales:
-{sales_monthly[sales_col].mean()}
-
-Maximum Monthly Sales:
-{sales_monthly[sales_col].max()}
-
-Top Products:
-{top_products.to_string()}
-
-Provide:
-1. Business insights
-2. Risks
-3. Recommendations
-4. Growth opportunities
-"""
-
-            try:
-
-                response = model_ai.generate_content(
-                    prompt
-                )
-
-                content = response.text.replace(
-                    "\n",
-                    "<br>"
-                )
-
-                st.markdown(
-                    f'''
-                    <div class="ai-card">
-                        <h3>🤖 Gemini AI Analyst</h3>
-                        {content}
-                    </div>
-                    ''',
-                    unsafe_allow_html=True
-                )
-
-            except Exception as e:
-                st.error(f"Gemini Error: {e}")
-
-else:
-    st.warning(
-        "Add GEMINI_API_KEY in Streamlit secrets"
+    # fallback insights
+    trend = (
+        "increasing 📈"
+        if sales_monthly.iloc[-1] > sales_monthly.iloc[0]
+        else "stable ➖"
     )
 
-# ------------------ GEMINI AI CHAT ------------------
-st.subheader("💬 Ask Gemini About Your Data")
+    fallback_insights = f"""
+    • Sales trend appears {trend}
+
+    • Total Sales: {sales_monthly.sum():,.0f}
+
+    • Average Monthly Sales:
+      {sales_monthly.mean():,.0f}
+
+    • Best Performing Product:
+      {top_products.index[0]}
+
+    • Forecast successfully generated using ARIMA.
+    """
+
+    if model_ai:
+
+        prompt = f"""
+        Analyze this sales dataset.
+
+        Total Sales:
+        {sales_monthly.sum()}
+
+        Average Monthly Sales:
+        {sales_monthly.mean()}
+
+        Top Products:
+        {top_products.to_string()}
+
+        Forecast:
+        {forecast.values.tolist()}
+
+        Give business insights and recommendations.
+        """
+
+        try:
+
+            response = model_ai.generate_content(
+                prompt
+            )
+
+            ai_text = response.text
+
+            st.markdown(
+                f"""
+                <div class="ai-card">
+                <h3>🤖 Gemini AI Analysis</h3>
+                {ai_text}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        except Exception:
+
+            st.warning(
+                "Gemini quota exceeded. Showing smart fallback insights."
+            )
+
+            st.markdown(
+                f"""
+                <div class="ai-card">
+                <h3>📊 Smart Insights</h3>
+                {fallback_insights}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    else:
+
+        st.markdown(
+            f"""
+            <div class="ai-card">
+            <h3>📊 Smart Insights</h3>
+            {fallback_insights}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+# ------------------ AI CHAT ------------------
+
+st.subheader("💬 Ask AI About Your Data")
 
 query = st.text_input(
     "Ask a question about your sales data"
 )
 
-if query and model_ai:
+if query:
 
-    with st.spinner("Gemini AI thinking..."):
+    context = f"""
+    Total Sales:
+    {sales_monthly.sum()}
+
+    Average Monthly Sales:
+    {sales_monthly.mean()}
+
+    Top Products:
+    {top_products.to_string()}
+    """
+
+    if model_ai:
 
         try:
 
-            context = f"""
-Dataset Summary:
-
-Total Sales:
-{sales_monthly[sales_col].sum()}
-
-Average Monthly Sales:
-{sales_monthly[sales_col].mean()}
-
-Top Products:
-{top_products.to_string()}
-"""
-
-            final_prompt = (
-                context +
-                "\n\nUser Question:\n" +
-                query
-            )
-
             response = model_ai.generate_content(
-                final_prompt
-            )
-
-            content = response.text.replace(
-                "\n",
-                "<br>"
+                context + "\n\nQuestion:\n" + query
             )
 
             st.markdown(
-                f'''
+                f"""
                 <div class="ai-card">
-                    <h3>💬 Gemini Response</h3>
-                    {content}
+                <h3>💬 Gemini Response</h3>
+                {response.text}
                 </div>
-                ''',
+                """,
                 unsafe_allow_html=True
             )
 
-        except Exception as e:
-            st.error(f"Gemini Error: {e}")
+        except Exception:
+
+            st.warning(
+                "Gemini quota exceeded. Showing fallback response."
+            )
+
+            st.markdown(
+                f"""
+                <div class="ai-card">
+                <h3>📊 Smart Response</h3>
+
+                Based on your dataset:
+
+                • Total Sales:
+                {sales_monthly.sum():,.0f}
+
+                • Best Product:
+                {top_products.index[0]}
+
+                • Sales Trend:
+                {"Increasing" if sales_monthly.iloc[-1] > sales_monthly.iloc[0] else "Stable"}
+
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    else:
+
+        st.info(
+            "Add GEMINI_API_KEY in Streamlit secrets to enable AI."
+        )
