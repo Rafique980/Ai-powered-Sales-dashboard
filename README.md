@@ -19,18 +19,18 @@ SQL-equivalent queries for analytical operations
 The goal of this project is to simplify complex sales data analysis for non-technical users by combining analytics, forecasting, and AI-driven insights into a single user-friendly platform.
 
 ---
-## 📊 Features
+## 📊 ## ✨ Features
 
-*📁 Upload and analyze custom CSV datasets*
-*🧹 Automated data cleaning and preprocessing*
-*📈 Monthly and overall sales trend analysis*
-*📊 KPI metrics (Total Sales, Average Sales, Maximum Sales)*
-*🏆 Top-performing products analysis*
-*📉 Product comparison visualizations*
-*🔮 Sales forecasting using ARIMA model*
-*🤖 AI-powered chatbot for business insights*
-*🧠 SQL-equivalent analytical query generation*
-*🌙 Interactive dark-themed dashboard UI*
+* 📁 Upload and analyze custom CSV datasets
+* 🧹 Automated data cleaning and preprocessing
+* 📈 Monthly and overall sales trend analysis
+* 📊 KPI metrics (Total Sales, Average Sales, Maximum Sales)
+* 🏆 Top-performing products analysis
+* 📉 Product comparison visualizations
+* 🔮 Sales forecasting using ARIMA model
+* 🤖 AI-powered chatbot for business insights
+* 🧠 SQL-equivalent analytical query generation
+* 🌙 Interactive dark-themed dashboard UI
 
 ---
 
