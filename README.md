@@ -20,16 +20,17 @@ The goal of this project is to simplify complex sales data analysis for non-tech
 
 ---
 ## 📊 Features
-*📁 Upload and analyze custom CSV datasets
-*🧹 Automated data cleaning and preprocessing
-*📈 Monthly and overall sales trend analysis
-*📊 KPI metrics (Total Sales, Average Sales, Maximum Sales)
-*🏆 Top-performing products analysis
-*📉 Product comparison visualizations
-*🔮 Sales forecasting using ARIMA model
-*🤖 AI-powered chatbot for business insights
-*🧠 SQL-equivalent analytical query generation
-*🌙 Interactive dark-themed dashboard UI
+
+*📁 Upload and analyze custom CSV datasets*
+*🧹 Automated data cleaning and preprocessing*
+*📈 Monthly and overall sales trend analysis*
+*📊 KPI metrics (Total Sales, Average Sales, Maximum Sales)*
+*🏆 Top-performing products analysis*
+*📉 Product comparison visualizations*
+*🔮 Sales forecasting using ARIMA model*
+*🤖 AI-powered chatbot for business insights*
+*🧠 SQL-equivalent analytical query generation*
+*🌙 Interactive dark-themed dashboard UI*
 
 ---
 
