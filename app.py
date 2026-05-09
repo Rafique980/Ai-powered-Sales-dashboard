@@ -344,6 +344,50 @@ else:
             f"Forecast Error: {e}"
         )
 
+# ---------------- Sql evqivalent queries ----------------
+# ---------------- SQL SECTION ----------------
+st.subheader("🧠 SQL Equivalent Queries")
+
+st.code("""
+-- Total Sales
+SELECT SUM(sales) AS total_sales
+FROM sales_data;
+
+-- Average Monthly Sales
+SELECT DATE_TRUNC('month', order_date) AS month,
+       SUM(sales) AS monthly_sales
+FROM sales_data
+GROUP BY month
+ORDER BY month;
+
+-- Top Products
+SELECT product,
+       SUM(sales) AS total_sales
+FROM sales_data
+GROUP BY product
+ORDER BY total_sales DESC
+LIMIT 10;
+
+-- Highest Sales Month
+SELECT DATE_TRUNC('month', order_date) AS month,
+       SUM(sales) AS monthly_sales
+FROM sales_data
+GROUP BY month
+ORDER BY monthly_sales DESC
+LIMIT 1;
+
+-- High Value Transactions
+SELECT *
+FROM sales_data
+WHERE sales > 1000;
+
+-- Total Orders Per Product
+SELECT product,
+       COUNT(*) AS total_orders
+FROM sales_data
+GROUP BY product
+ORDER BY total_orders DESC;
+""", language="sql")
 # ---------------- AI INSIGHTS ----------------
 st.subheader("🤖 AI Insights")
 
