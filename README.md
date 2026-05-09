@@ -1,4 +1,4 @@
-# 📊 Sales Forecasting Dashboard
+# 📊 AI-Powered Sales Forecasting Dashboard
 
 ## 🚀 Live Demo
 
