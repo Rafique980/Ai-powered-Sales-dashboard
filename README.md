@@ -19,7 +19,7 @@ SQL-equivalent queries for analytical operations
 The goal of this project is to simplify complex sales data analysis for non-technical users by combining analytics, forecasting, and AI-driven insights into a single user-friendly platform.
 
 ---
-## 📊 ## ✨ Features
+## ✨ Features
 
 * 📁 Upload and analyze custom CSV datasets
 * 🧹 Automated data cleaning and preprocessing
