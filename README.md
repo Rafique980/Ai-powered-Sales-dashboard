@@ -52,7 +52,7 @@ The goal of this project is to demonstrate **data analysis, visualization, and f
 
 ### 📊 Full Dashboard
 
-![dashboard](full dashboard.png)
+![Dashboard](fulldashboard.png)
 
 ---
 
