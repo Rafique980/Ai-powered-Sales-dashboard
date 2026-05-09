@@ -7,24 +7,29 @@ https://sales-forecast-dashboard-kxzh3m7itdudwlsbatmjkh.streamlit.app
 ---
 
 ## 📌 Project Overview
+This project is an interactive AI-powered Sales Analytics & Forecasting Dashboard built using Python and Streamlit.
 
-This project is an interactive **Sales Forecasting Dashboard** built using Python and Streamlit.
-It allows users to upload sales data, analyze trends, visualize performance, and predict future sales using time series forecasting.
+The application allows users to upload their own CSV sales datasets and instantly generate:
+Interactive dashboards and visual analytics
+Sales trend analysis and forecasting
+AI-generated business insights
+KPI tracking and product performance analysis
+SQL-equivalent queries for analytical operations
 
-The goal of this project is to demonstrate **data analysis, visualization, and forecasting skills** in a real-world scenario.
+The goal of this project is to simplify complex sales data analysis for non-technical users by combining analytics, forecasting, and AI-driven insights into a single user-friendly platform.
 
 ---
-
 ## 📊 Features
-
-* 📁 Upload and preview CSV datasets
-* 🧹 Data cleaning and preprocessing
-* 📈 Sales trend analysis (raw & monthly)
-* 📊 Key metrics (Total, Average, Max sales)
-* 🏆 Top-performing products analysis
-* 📉 Product comparison visualization
-* 🔮 Sales forecasting using ARIMA model
-* 🧠 SQL queries for equivalent analysis
+*📁 Upload and analyze custom CSV datasets
+*🧹 Automated data cleaning and preprocessing
+*📈 Monthly and overall sales trend analysis
+*📊 KPI metrics (Total Sales, Average Sales, Maximum Sales)
+*🏆 Top-performing products analysis
+*📉 Product comparison visualizations
+*🔮 Sales forecasting using ARIMA model
+*🤖 AI-powered chatbot for business insights
+*🧠 SQL-equivalent analytical query generation
+*🌙 Interactive dark-themed dashboard UI
 
 ---
 
@@ -103,9 +108,8 @@ WHERE sales > 1000;
 ---
 
 ## 👤 Author
-
 **Rafique Ali Merchant**
-BSc Data Science Student
+Ty BSc Data Science Student
 
 * 📍 Mumbai, India
 * 📧 [rafiquealimerchant@gmail.com](mailto:rafiquealimerchant@gmail.com)
