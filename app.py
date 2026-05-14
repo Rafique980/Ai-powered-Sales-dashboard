@@ -66,7 +66,6 @@ h1, h2, h3 {
 """, unsafe_allow_html=True)
 
 # ---------------- HEADER ----------------
-st.title("📊 AI Sales Forecast Dashboard")
 st.caption("Upload CSV • Analyze Sales • Forecast Trends • AI Insights")
 
 # ---------------- FILE UPLOAD ----------------
