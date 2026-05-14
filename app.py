@@ -7,11 +7,12 @@ from groq import Groq
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="AI Sales Forecast Dashboard",
+    page_title="AI-Powered Sales Forecast Dashboard",
     page_icon="📊",
     layout="wide"
 )
 
+st.title("📊 AI-Powered Sales Forecast Dashboard")
 # ---------------- GROQ SETUP ----------------
 client = None
 
