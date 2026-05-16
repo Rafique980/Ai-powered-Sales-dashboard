@@ -2,7 +2,7 @@
 
 ## 🚀 Live Demo
 
-[Launch Web App](https://sales-forecast-dashboard-kxzh3m7itdudwlsbatmjkh.streamlit.app)
+(https://sales-forecast-dashboard-kxzh3m7itdudwlsbatmjkh.streamlit.app)
 
 ---
 
