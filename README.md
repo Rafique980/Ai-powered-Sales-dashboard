@@ -1,76 +1,44 @@
-# 📊 AI-Powered Sales Forecasting Dashboard
+📊 AI-Powered Sales Forecasting Dashboard
 
-## 🚀 Live Demo
+🚀 Live Demo: https://sales-forecast-dashboard-kxzh3m7itdudwlsbatmjkh.streamlit.app
 
-(https://sales-forecast-dashboard-kxzh3m7itdudwlsbatmjkh.streamlit.app)
+📌 Overview
 
----
+An interactive AI-powered Sales Analytics and Forecasting web application built with Python and Streamlit.
 
-## 📌 Project Overview
+It enables users to upload sales CSV datasets and instantly generate end-to-end business intelligence including dashboards, forecasting, and AI-driven insights.
 
-An interactive AI-powered Sales Analytics & Forecasting Web App built using Python and Streamlit.
+✨ Key Features
+📁 Upload and analyze custom CSV datasets
+🧹 Automated data cleaning and preprocessing
+📈 Interactive sales dashboards using Plotly
+📊 KPI tracking and performance analytics
+🏆 Top-performing product analysis
+📉 Comparative product performance visualization
+🔮 Sales forecasting using ARIMA time-series model
+🤖 AI-powered business insights and chatbot assistance
+🧠 SQL-like analytical query support
+🌙 Interactive Streamlit UI with dark theme
+🛠 Tech Stack
+Python
+Streamlit
+Pandas, NumPy
+Plotly, Matplotlib
+Statsmodels (ARIMA)
+SQL concepts
+🎯 Learning Outcomes
+Built end-to-end data analytics pipeline from raw CSV to insights
+Applied EDA, data cleaning, and feature analysis
+Implemented time-series forecasting (ARIMA) for prediction
+Designed interactive dashboards using Streamlit + Plotly
+Integrated AI-driven insight generation for business interpretation
+👤 Author
 
-The application enables users to upload custom CSV sales datasets and instantly generate:
-
-* 📈 Interactive dashboards and visual analytics
-* 🔮 Sales forecasting using ARIMA
-* 🤖 AI-generated business insights
-* 📊 KPI tracking and product performance analysis
-* 🧠 SQL-equivalent analytical operations
-
-The goal of this project is to simplify complex sales data analysis by combining forecasting, analytics, and AI-driven insights into a single user-friendly platform.
-
----
-
-## ✨ Features
-
-* 📁 Upload and analyze custom CSV datasets
-* 🧹 Automated data cleaning and preprocessing
-* 📈 Monthly and overall sales trend analysis
-* 📊 KPI metrics visualization
-* 🏆 Top-performing product analysis
-* 📉 Product comparison charts
-* 🔮 Sales forecasting using ARIMA
-* 🤖 AI-powered chatbot for business insights
-* 🧠 SQL-equivalent analytical queries
-* 🌙 Interactive dark-themed dashboard UI
-
----
-
-## 🛠 Tech Stack
-
-* Python
-* Streamlit
-* Pandas
-* NumPy
-* Matplotlib
-* Plotly
-* Statsmodels (ARIMA)
-* SQL
-
----
-
-## 🎯 Learning Outcomes
-
-* Applied data preprocessing and cleaning techniques
-* Built interactive dashboards using Streamlit
-* Performed exploratory data analysis (EDA)
-* Implemented time-series forecasting using ARIMA
-* Integrated AI-generated business insights
-* Translated Python-based analysis into SQL queries
-
----
-
-## 👤 Author
-
-**Rafique Ali Merchant**
-TY BSc Data Science Student
-Mumbai, India
+Rafique Ali Merchant
+TY BSc Data Science | Mumbai, India
 
 🔗 LinkedIn: https://www.linkedin.com/in/rafiqueali-merchant-771159364
 
----
+⭐ Note
 
-## ⭐ Final Note
-
-This project demonstrates the ability to work with real-world datasets, extract meaningful insights, and build deployable AI-powered analytics applications suitable for Data Analyst and Data Science roles.
+This project demonstrates the ability to work with real-world datasets, perform advanced analytics, and build deployable AI-powered data applications suitable for Data Analyst and Data Science roles.
