@@ -1,24 +1,27 @@
 📊 AI-Powered Sales Forecasting Dashboard
+🚀 Live Demo
 
-🚀 Live Demo: https://sales-forecast-dashboard-kxzh3m7itdudwlsbatmjkh.streamlit.app
+👉 https://sales-forecast-dashboard-kxzh3m7itdudwlsbatmjkh.streamlit.app
 
-📌 Overview
+📌 Project Overview
 
-An interactive AI-powered Sales Analytics and Forecasting web application built with Python and Streamlit.
+An interactive AI-powered Sales Analytics & Forecasting web application built using Python and Streamlit.
 
-It enables users to upload sales CSV datasets and instantly generate end-to-end business intelligence including dashboards, forecasting, and AI-driven insights.
+The application enables users to upload custom CSV sales datasets and instantly generate end-to-end business insights including dashboards, forecasting, and AI-driven analysis.
 
 ✨ Key Features
+
 📁 Upload and analyze custom CSV datasets
 🧹 Automated data cleaning and preprocessing
 📈 Interactive sales dashboards using Plotly
 📊 KPI tracking and performance analytics
 🏆 Top-performing product analysis
-📉 Comparative product performance visualization
+📉 Product comparison visualizations
 🔮 Sales forecasting using ARIMA time-series model
-🤖 AI-powered business insights and chatbot assistance
+🤖 AI-powered business insights and chatbot
 🧠 SQL-like analytical query support
-🌙 Interactive Streamlit UI with dark theme
+🌙 Interactive Streamlit dark-themed UI
+
 🛠 Tech Stack
 Python
 Streamlit
@@ -27,11 +30,11 @@ Plotly, Matplotlib
 Statsmodels (ARIMA)
 SQL concepts
 🎯 Learning Outcomes
-Built end-to-end data analytics pipeline from raw CSV to insights
-Applied EDA, data cleaning, and feature analysis
-Implemented time-series forecasting (ARIMA) for prediction
+Built end-to-end data analytics pipeline (CSV → insights)
+Applied data preprocessing and exploratory data analysis (EDA)
+Implemented ARIMA time-series forecasting
 Designed interactive dashboards using Streamlit + Plotly
-Integrated AI-driven insight generation for business interpretation
+Developed AI-style business insight generation
 👤 Author
 
 Rafique Ali Merchant
@@ -41,4 +44,4 @@ TY BSc Data Science | Mumbai, India
 
 ⭐ Note
 
-This project demonstrates the ability to work with real-world datasets, perform advanced analytics, and build deployable AI-powered data applications suitable for Data Analyst and Data Science roles.
+This project demonstrates the ability to work with real-world datasets, extract meaningful insights, and build deployable AI-powered analytics applications suitable for Data Analyst and Data Science roles.
