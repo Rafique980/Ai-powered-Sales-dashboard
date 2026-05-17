@@ -31,7 +31,7 @@ Dark-themed dashboard
 Real-time updates
 </details>
 🛠 Tech Stack
-<details> <summary>Click to expand</summary>
+<details> <summary></summary>
 Python
 Streamlit
 Pandas, NumPy
