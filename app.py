@@ -159,39 +159,59 @@ st.divider()
 st.subheader("🚩 Forecast Deviations & Actionable Flags")
 st.caption("Automated detection of significant forecasted monthly shifts with reasons and recommendations")
 
-last_hist_sales = sales_monthly.iloc[-1]
-avg_hist_sales = sales_monthly.mean()
-
-def flag_monthly_deviations(row):
-    pred = row["Predicted Sales"]
-    pct_from_last = ((pred - last_hist_sales) / last_hist_sales) * 100
+# UPDATED DEVIATION & ANOMALY LOGIC (TRIGGERS REAL FLAGS)
+def flag_monthly_deviations(df_forecast):
+    flags, reasons, next_steps = [], [], []
     
-    if pct_from_last < -15:
-        flag = "🚨 Significant Revenue Risk"
-        reason = f"Predicted drop of {abs(pct_from_last):.1f}% compared to recent historical revenue."
-        next_step = "Initiate targeted marketing campaigns and adjust inventory orders down to prevent holding costs."
-    elif pct_from_last > 15:
-        flag = "🚀 Growth Surge Opportunity"
-        reason = f"Predicted increase of {pct_from_last:.1f}% above recent historical baseline."
-        next_step = "Ramp up supply chain procurement and ensure adequate stock buffer for demand spike."
-    else:
-        flag = "🟢 Stable Forecast"
-        reason = "Predicted revenue is within normal expected variance."
-        next_step = "Maintain standard operations and routine inventory tracking."
+    # Base baseline against the last known actual month
+    prev_val = last_hist_sales 
+    
+    for idx, row in df_forecast.iterrows():
+        pred = row["Predicted Sales"]
         
-    return pd.Series([flag, reason, next_step])
+        # Calculate Month-over-Month (MoM) % change relative to previous month
+        mom_change = ((pred - prev_val) / prev_val) * 100
+        
+        # 2% MoM sensitivity threshold
+        if mom_change < -2.0:
+            flags.append("🚨 Revenue Risk")
+            reasons.append(f"Projected drop of {abs(mom_change):.1f}% vs previous month.")
+            next_steps.append("Launch promotional deals & optimize inventory to avoid excess holding costs.")
+            
+        elif mom_change > 2.0:
+            flags.append("🚀 Growth Opportunity")
+            reasons.append(f"Projected increase of {mom_change:.1f}% vs previous month.")
+            next_steps.append("Ensure supply chain readiness & procure inventory stock for demand surge.")
+            
+        elif pred < avg_hist_sales * 0.95:
+            flags.append("⚠️ Below Target Alert")
+            reasons.append("Predicted sales fall significantly below historical average.")
+            next_steps.append("Review product mix and trigger targeted marketing pushes.")
+            
+        else:
+            flags.append("🟢 Stable Forecast")
+            reasons.append("Predicted revenue is within expected steady performance range.")
+            next_steps.append("Maintain standard operations and routine inventory tracking.")
+            
+        prev_val = pred # Update baseline for next iteration
+        
+    return flags, reasons, next_steps
 
 # Copy forecast dataframe for analysis
 anomaly_df = forecast_df.copy()
 anomaly_df["Month"] = anomaly_df["Date"].dt.strftime("%B %Y")
-anomaly_df[["Status Flag", "Primary Reason", "Suggested Next Step"]] = anomaly_df.apply(flag_monthly_deviations, axis=1)
+
+# Apply updated logic
+flags, reasons, next_steps = flag_monthly_deviations(anomaly_df)
+anomaly_df["Status Flag"] = flags
+anomaly_df["Primary Reason"] = reasons
+anomaly_df["Suggested Next Step"] = next_steps
 
 # Display table
 st.dataframe(
-    anomaly_df[["Month", "Predicted Sales", "Status Flag", "Primary Reason", "Suggested Next Step"]]
+    anomaly_df[["Month", "Predicted Sales", "Status Flag", "Primary Reason", "Suggested Next Step"]],
+    use_container_width=True
 )
-
-st.divider()
 
 # ------------------ FINAL INSIGHTS ------------------
 st.subheader("📌 Insights")
