@@ -145,7 +145,9 @@ fig3, ax3 = plt.subplots()
 
 ax3.plot(sales_monthly.index, sales_monthly.values, label="Actual")
 ax3.plot(forecast_df["Date"], forecast_df["Predicted Sales"], linestyle='--', label="Forecast")
-
+# Extract historical baselines for deviation tracking
+last_hist_sales = sales_monthly.iloc[-1]
+avg_hist_sales = sales_monthly.mean()
 ax3.legend()
 ax3.set_title("Sales Forecast")
 
