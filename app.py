@@ -188,8 +188,7 @@ anomaly_df[["Status Flag", "Primary Reason", "Suggested Next Step"]] = anomaly_d
 
 # Display table
 st.dataframe(
-    anomaly_df[["Month", "Predicted Sales", "Status Flag", "Primary Reason", "Suggested Next Step"]],
-    use_container_width=True
+    anomaly_df[["Month", "Predicted Sales", "Status Flag", "Primary Reason", "Suggested Next Step"]]
 )
 
 st.divider()
