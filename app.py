@@ -2,11 +2,19 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
+import os
+
+# ------------------ GROQ SETUP ------------------
+try:
+    from groq import Groq
+    groq_client = Groq(api_key=st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", "")))
+except Exception:
+    groq_client = None
 
 # ------------------ PAGE SETUP ------------------
-st.set_page_config(page_title="Sales Forecasting Dashboard", layout="wide")
+st.set_page_config(page_title="AI Sales Forecast Dashboard", layout="wide")
 
-st.title("📊 Sales Forecasting Dashboard")
+st.title("📊 AI Sales Forecast Dashboard")
 st.caption("Upload your data and analyze + forecast sales")
 
 # ------------------ FILE UPLOAD ------------------
@@ -30,7 +38,6 @@ sales_col = st.sidebar.selectbox("Select Sales Column", df.columns)
 product_col = st.sidebar.selectbox("Select Product Column", df.columns)
 
 # ------------------ DATA CLEANING ------------------
-# FIXED DATE FORMAT
 df[date_col] = pd.to_datetime(
     df[date_col],
     format='%d/%m/%Y',
@@ -39,15 +46,7 @@ df[date_col] = pd.to_datetime(
 
 df[sales_col] = pd.to_numeric(df[sales_col], errors='coerce')
 
-st.write("Rows before cleaning:", len(df))
-
-# Debug preview
-st.write("Converted Date Sample:")
-st.write(df[[date_col]].head())
-
 df = df.dropna(subset=[date_col, sales_col])
-
-st.write("Rows after cleaning:", len(df))
 
 if df.empty:
     st.error("No valid data after cleaning")
@@ -56,14 +55,12 @@ if df.empty:
 # ------------------ TIME SERIES ------------------
 sales = df.groupby(date_col)[sales_col].sum()
 
-# RAW DATA GRAPH
-st.subheader("📈 Raw Sales Trend (All Data)")
+st.subheader("📈 Sales Trend")
 st.line_chart(sales)
 
-# MONTHLY DATA
 sales_monthly = sales.resample('ME').sum()
 
-st.subheader("📉 Monthly Sales Trend")
+st.subheader("📉 Monthly Sales")
 st.line_chart(sales_monthly)
 
 st.divider()
@@ -73,48 +70,29 @@ st.subheader("📊 Key Metrics")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Total Sales", f"{int(sales_monthly.sum()):,}")
-col2.metric("Avg Monthly Sales", f"{int(sales_monthly.mean()):,}")
-col3.metric("Max Monthly Sales", f"{int(sales_monthly.max()):,}")
+col1.metric("Total Revenue", f"${int(sales_monthly.sum()):,}")
+col2.metric("Avg Monthly Revenue", f"${int(sales_monthly.mean()):,}")
+col3.metric("Max Monthly Revenue", f"${int(sales_monthly.max()):,}")
 
 st.divider()
 
 # ------------------ TOP PRODUCTS ------------------
-st.subheader("🏆 Top 5 Products")
+st.subheader("🏆 Top Products")
 
-top_products = df.groupby(product_col)[sales_col].sum().sort_values(ascending=False).head(5)
+top_products = df.groupby(product_col)[sales_col].sum().sort_values(ascending=False).head(10)
 
 fig1, ax1 = plt.subplots()
 top_products.plot(kind='bar', ax=ax1)
-ax1.set_title("Top 5 Products")
+ax1.set_title("Top Performing Products")
 plt.xticks(rotation=45)
 
 st.pyplot(fig1)
 
-st.write("📌 Insight: A few products contribute most of the revenue.")
-
-st.divider()
-
-# ------------------ PRODUCT COMPARISON ------------------
-st.subheader("📊 Product Comparison")
-
-product_sales = df.groupby(product_col)[sales_col].sum()
-
-fig2, ax2 = plt.subplots()
-product_sales.plot(kind='bar', ax=ax2)
-ax2.set_title("Sales by Product")
-plt.xticks(rotation=45)
-
-st.pyplot(fig2)
-
-st.write("📌 Insight: Sales vary significantly across products.")
-
 st.divider()
 
 # ------------------ FORECAST ------------------
-st.subheader("🔮 Forecast Settings")
+st.subheader("🔮 Sales Forecast")
 
-# SAFETY CHECK
 if len(sales_monthly) < 3:
     st.error("Not enough data for forecasting")
     st.stop()
@@ -135,108 +113,76 @@ forecast_df = pd.DataFrame({
     "Predicted Sales": forecast.values
 })
 
-st.subheader("📅 Forecast Data")
 st.dataframe(forecast_df)
 
-# ------------------ FORECAST GRAPH ------------------
-st.subheader("📊 Forecast Visualization")
-
 fig3, ax3 = plt.subplots()
-
 ax3.plot(sales_monthly.index, sales_monthly.values, label="Actual")
 ax3.plot(forecast_df["Date"], forecast_df["Predicted Sales"], linestyle='--', label="Forecast")
-# Extract historical baselines for deviation tracking
-last_hist_sales = sales_monthly.iloc[-1]
-avg_hist_sales = sales_monthly.mean()
 ax3.legend()
 ax3.set_title("Sales Forecast")
-
 st.pyplot(fig3)
 
 st.divider()
 
-# ==============================================================================
-# NEW SECTION: MONTHLY DEVIATION & ANOMALY ANALYSIS
-# ==============================================================================
+# ------------------ ACTIONABLE FLAGS ------------------
 st.subheader("🚩 Forecast Deviations & Actionable Flags")
-st.caption("Automated detection of significant forecasted monthly shifts with reasons and recommendations")
 
-# UPDATED DEVIATION & ANOMALY LOGIC (TRIGGERS REAL FLAGS)
+last_hist_sales = sales_monthly.iloc[-1]
+avg_hist_sales = sales_monthly.mean()
+
 def flag_monthly_deviations(df_forecast):
     flags, reasons, next_steps = [], [], []
-    
-    # Base baseline against the last known actual month
     prev_val = last_hist_sales 
     
     for idx, row in df_forecast.iterrows():
         pred = row["Predicted Sales"]
-        
-        # Calculate Month-over-Month (MoM) % change relative to previous month
         mom_change = ((pred - prev_val) / prev_val) * 100
         
-        # 2% MoM sensitivity threshold
-        if mom_change < -2.0:
+        if mom_change < -0.5:
             flags.append("🚨 Revenue Risk")
             reasons.append(f"Projected drop of {abs(mom_change):.1f}% vs previous month.")
             next_steps.append("Launch promotional deals & optimize inventory to avoid excess holding costs.")
-            
-        elif mom_change > 2.0:
+        elif mom_change > 0.5:
             flags.append("🚀 Growth Opportunity")
             reasons.append(f"Projected increase of {mom_change:.1f}% vs previous month.")
             next_steps.append("Ensure supply chain readiness & procure inventory stock for demand surge.")
-            
         elif pred < avg_hist_sales * 0.95:
             flags.append("⚠️ Below Target Alert")
             reasons.append("Predicted sales fall significantly below historical average.")
             next_steps.append("Review product mix and trigger targeted marketing pushes.")
-            
         else:
             flags.append("🟢 Stable Forecast")
             reasons.append("Predicted revenue is within expected steady performance range.")
             next_steps.append("Maintain standard operations and routine inventory tracking.")
             
-        prev_val = pred # Update baseline for next iteration
+        prev_val = pred
         
     return flags, reasons, next_steps
 
-# Copy forecast dataframe for analysis
 anomaly_df = forecast_df.copy()
 anomaly_df["Month"] = anomaly_df["Date"].dt.strftime("%B %Y")
-
-# Apply updated logic
 flags, reasons, next_steps = flag_monthly_deviations(anomaly_df)
 anomaly_df["Status Flag"] = flags
 anomaly_df["Primary Reason"] = reasons
 anomaly_df["Suggested Next Step"] = next_steps
 
-# Display table
 st.dataframe(
     anomaly_df[["Month", "Predicted Sales", "Status Flag", "Primary Reason", "Suggested Next Step"]],
     use_container_width=True
 )
 
-# ------------------ FINAL INSIGHTS ------------------
-st.subheader("📌 Insights")
+st.divider()
 
-trend = "increasing 📈" if sales_monthly.iloc[-1] > sales_monthly.iloc[0] else "stable ➖"
-
-st.write(f"""
-- Sales trend appears **{trend}**
-- Top-performing products drive majority of revenue
-- Forecast suggests stable future performance
-- Useful for business planning and decision-making
-""")
-
-# ------------------ SQL SECTION ------------------
+# ------------------ SQL EQUIVALENT QUERIES ------------------
 st.subheader("🧠 SQL Equivalent Queries")
 
 st.code("""
--- Top 5 Products by Sales
+-- Top Products by Sales
 SELECT product, SUM(sales)
 FROM sales_data
 GROUP BY product
 ORDER BY SUM(sales) DESC
-LIMIT 5;
+LIMIT 10;
 
 -- Monthly Sales Trend
 SELECT DATE_TRUNC('month', order_date) AS month, SUM(sales)
@@ -246,11 +192,70 @@ ORDER BY month;
 
 -- Total Sales
 SELECT SUM(sales) FROM sales_data;
-
--- High Value Transactions
-SELECT *
-FROM sales_data
-WHERE sales > 1000;
 """, language="sql")
 
 st.divider()
+
+# ------------------ AI INSIGHTS GENERATOR ------------------
+st.subheader("📌 AI Insights")
+
+if st.button("✨ Generate AI Insights"):
+    if groq_client:
+        with st.spinner("Analyzing data with Groq AI..."):
+            data_summary = f"""
+            Total Revenue: ${int(sales_monthly.sum()):,}
+            Avg Monthly Revenue: ${int(sales_monthly.mean()):,}
+            Top Product: {top_products.index[0]} (${int(top_products.iloc[0]):,})
+            Forecasted Months: {steps}
+            Next Month Projected Revenue: ${int(forecast_df.iloc[0]['Predicted Sales']):,}
+            """
+            prompt = f"Act as an executive business analyst. Generate detailed insights based on this data summary: {data_summary}. Structure your output with Key Findings, Risks, and Recommendations."
+            
+            try:
+                response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3
+                )
+                st.markdown(response.choices[0].message.content)
+            except Exception as e:
+                st.error(f"Error calling Groq API: {e}")
+    else:
+        st.info("💡 Pro Tip: Configure your GROQ_API_KEY in Streamlit Secrets to enable automated LLM executive summaries!")
+
+st.divider()
+
+# ------------------ ASK AI CHATBOT ------------------
+st.subheader("🤖 Ask AI About Your Data")
+st.caption("Ask any question regarding your sales dataset")
+
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
+
+for msg in st.session_state["messages"]:
+    st.chat_message(msg["role"]).write(msg["content"])
+
+if user_input := st.chat_input("e.g. Which month had highest revenue?"):
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.chat_message("user").write(user_input)
+
+    if groq_client:
+        try:
+            context = f"Dataset Total Revenue: ${int(sales_monthly.sum()):,}. Top Product: {top_products.index[0]}. Latest Monthly Revenue: ${int(sales_monthly.iloc[-1]):,}."
+            system_msg = f"You are a helpful data analyst assistant. Context: {context}"
+            
+            response = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_input}
+                ]
+            )
+            bot_reply = response.choices[0].message.content
+        except Exception as e:
+            bot_reply = f"Couldn't connect to Groq API. Quick answer based on data: Total sales = ${int(sales_monthly.sum()):,} across {len(df)} rows."
+    else:
+        bot_reply = f"Total Revenue: ${int(sales_monthly.sum()):,}. Top Product: {top_products.index[0]}."
+
+    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+    st.chat_message("assistant").write(bot_reply)
